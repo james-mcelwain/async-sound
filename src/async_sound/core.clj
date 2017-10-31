@@ -48,17 +48,29 @@
 (defn average [coll]
   (int (/ (reduce + coll) (count coll))))
 
-(defn listen [name]
-  (with-open [line (-> name mixer get-line (open-line (audio-format)))
-              out (java.io.ByteArrayOutputStream.)]
-    (let [size (.getBufferSize line)
-          buffer (byte-array size)]
-      ;; loop
-      (.reset out)
-      (when-let* [count (did-read line buffer size)
-                  ba (.toByteArray (do (.write out buffer 0 size) out))]
+(def channel (async/chan (async/sliding-buffer 1)))
 
-        (average (reduce (fn [sample-values [low-byte high-byte]]
-                          (cons (little-endian low-byte high-byte) sample-values)) [] (partition-all 2 ba)))))))
+(defn reduce-frames [frames] (reduce (fn [xs [lb hb]] (cons (little-endian lb hb) xs)) [] frames))
 
-(listen "ES8")
+(defn listen [name chan]
+    (async/thread
+      (with-open [line (-> name mixer get-line (open-line (audio-format)))
+                  out (java.io.ByteArrayOutputStream.)]
+        (let [size (.getBufferSize line)
+              buffer (byte-array size)]
+          ;; loop
+          (loop []
+            (do
+              (.reset out)
+              (when-let* [count (did-read line buffer size)
+                          frames (partition-all 2 (.toByteArray (do (.write out buffer 0 size) out)))
+                          avg (average (reduce-frames frames))]
+                (println avg)
+                (async/>!! chan avg)
+                (recur))))))))
+
+(def chan (async/chan (async/buffer 1)))
+
+(listen "ES8" chan)
+
+(async/<!! chan)
