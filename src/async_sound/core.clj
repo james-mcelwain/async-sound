@@ -6,10 +6,10 @@
 (defmacro when-let*
   ([bindings & body]
    (if (seq bindings)
-     `(when-let [~(first bindings) ~(second bindings)]
-        (when-let* ~(drop 2 bindings) ~@body))
+     (do (println bindings)
+       `(when-let [~(first bindings) ~(second bindings)]
+          (when-let* ~(drop 2 bindings) ~@body)))
      `(do ~@body))))
-
 
 (defn get-mixer-info-by-name [name]
   (filter #(str/includes? (.getName %) name) (javax.sound.sampled.AudioSystem/getMixerInfo)))
@@ -52,9 +52,13 @@
 
 (defn reduce-frames [frames] (reduce (fn [xs [lb hb]] (cons (little-endian lb hb) xs)) [] frames))
 
-(defn listen [name chan]
+
+;; lib
+
+(defn lib [{name :name audio-format :audio-format min :min max :max chan :chan}]
+  (fn []
     (async/thread
-      (with-open [line (-> name mixer get-line (open-line (audio-format)))
+      (with-open [line (-> name mixer get-line (open-line audio-format))
                   out (java.io.ByteArrayOutputStream.)]
         (let [size (.getBufferSize line)
               buffer (byte-array size)]
@@ -63,14 +67,16 @@
             (do
               (.reset out)
               (when-let* [count (did-read line buffer size)
-                          frames (partition-all 2 (.toByteArray (do (.write out buffer 0 size) out)))
+                          ba (.toByteArray (do (.write out buffer 0 size) out))
+                          frames (partition-all 2 ba)
                           avg (average (reduce-frames frames))]
                 (println avg)
                 (async/>!! chan avg)
-                (recur))))))))
+                (recur)))))))))
+
 
 (def chan (async/chan (async/buffer 1)))
 
-(listen "ES8" chan)
+(def listener (lib {:chan chan :audio-format audio-format :name "ES8"}))
 
-(async/<!! chan)
+(listener)
