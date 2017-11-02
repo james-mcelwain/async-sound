@@ -22,7 +22,7 @@
     (javax.sound.sampled.AudioSystem/getMixer (first mixer-info))
     (throw (Exception. (str "No mixer found with name " name)))))
 
-(defn audio-format []
+(def audio-format-mono-16
   (let [sample-rate 44100
         sample-size 16
         channels 1
@@ -55,7 +55,7 @@
 
 ;; lib
 
-(defn lib [{name :name audio-format :audio-format min :min max :max chan :chan}]
+(defn listener [{name :name audio-format :audio-format min :min max :max chan :chan}]
   (fn []
     (async/thread
       (with-open [line (-> name mixer get-line (open-line audio-format))
@@ -75,8 +75,3 @@
                 (recur)))))))))
 
 
-(def chan (async/chan (async/buffer 1)))
-
-(def listener (lib {:chan chan :audio-format audio-format :name "ES8"}))
-
-(listener)
