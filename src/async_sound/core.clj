@@ -37,7 +37,7 @@
     line))
 
 (defn little-endian [b1 b2]
-  (short (bit-or (bit-shift-left b1 8) (bit-and b2 0xFF))))
+  (short (bit-or (bit-and b1 0xFF) (bit-shift-left b2 8))))
 
 (defn did-read [in buffer size]
   (let [count (.read in buffer 0 size)]
@@ -55,12 +55,12 @@
 
 ;; lib
 
-(defn listener [{name :name audio-format :audio-format min :min max :max chan :chan}]
+(defn listener [{name :name audio-format :audio-format min :min max :max chan :chan frame-rate :frame-rate}]
   (fn []
     (async/thread
       (with-open [line (-> name mixer get-line (open-line audio-format))
                   out (java.io.ByteArrayOutputStream.)]
-        (let [size (.getBufferSize line)
+        (let [size (/ (.getBufferSize line) 1)
               buffer (byte-array size)]
           ;; loop
           (loop []
@@ -73,5 +73,3 @@
                 (println avg)
                 (async/>!! chan avg)
                 (recur)))))))))
-
-
