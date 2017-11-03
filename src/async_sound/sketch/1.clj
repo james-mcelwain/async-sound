@@ -5,17 +5,26 @@
             [quil.middleware :as m]))
 
 (def chan (async/chan (async/buffer 1)))
-(def listener (core/listener {:chan chan :audio-format core/audio-format-mono-16 :name "ES8"}))
 
-(defn setup [])
+(def listener (core/listener {:chan chan :audio-format core/audio-format-mono-16 :name "ES8" :frame-rate 30}))
 
-(defn update-state [state] state)
+(defn map-sound [val]
+  [(q/map-range val -2000 2000 0 255) 0 (q/map-range val 2000 -2000 0 255)])
 
-(defn draw-state [state] state)
+(defn setup []
+  (listener)
+  {:bg-color 0})
+
+(defn update-state [state]
+  (let [[r g b] (map-sound (async/<!! chan))]
+    {:r r :g g :b b}))
+
+(defn draw-state [{r :r g :g b :b}]
+  (q/background r g b))
 
 (q/defsketch async-sound-1
   :title "async-sound-1"
-  :size [600 600]
+  :size [1000 600]
   :setup setup
   :update update-state
   :draw draw-state
