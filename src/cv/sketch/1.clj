@@ -6,17 +6,15 @@
 
 (def chan (async/chan (async/buffer 1)))
 
-(def listener (core/listener {:chan chan :audio-format core/audio-format-mono-16 :name "ES8" :frame-rate 30}))
-
-(defn map-sound [val]
-  [(q/map-range val -2000 2000 0 255) 0 (q/map-range val 2000 -2000 0 255)])
+(defn map-sound [val val2]
+  [(q/map-range val -30000 30000 0 255) (q/map-range val2 -30000 30000 0 255) (q/map-range val 30000 -30000 0 255) ])
 
 (defn setup []
-  (listener)
-  {:bg-color 0})
+  (core/ES8)
+  {:r 0 :g 0 :b 0})
 
 (defn update-state [state]
-  (let [[r g b] (map-sound (async/<!! chan))]
+  (let [[r g b] (map-sound (async/<!! core/c0) (async/<!! core/c1))]
     {:r r :g g :b b}))
 
 (defn draw-state [{r :r g :g b :b}]

@@ -47,32 +47,41 @@
                   out (java.io.ByteArrayOutputStream.)]
         (let [size (/ (.getBufferSize line) frame-rate)
               buffer (byte-array size)]
-          ;; loop
+
+          ;; listen
           (loop []
             (do
               (.reset out)
-              (when-let* [count     (did-read line buffer size)
+              (when-let* [start     (.toEpochMilli (java.time.Instant/now))
+                          count     (did-read line buffer size)
                           ba        (.toByteArray (do (.write out buffer 0 size) out))
                           frames    (partition-all 4 (partition-all 2 ba))
-                          {:keys [a b c d]} (reduce (fn [{:keys [a b c d]} [af bf cf df]]
+                          {:keys [a b c d]} (reduce
+                                                 ;;               |                      |
+                                                 ;;               | c0    c1    c2    c3 |
+                                                 ;;               | f0    f1    f2    f3 |
+                                             (fn [{:keys [a b c d]} [af    bf    cf    df]]
                                                       {:a (conj a af)
                                                        :b (conj b bf)
                                                        :c (conj c cf)
                                                        :d (conj d df)})
-                                                    {:a [] :b [] :c [] :d []} frames)]
-                (map handle-buffer-queue [[a c0 h0] [b c1 h1] [c c2 h2] [d c3 h3]])
-                (recur)))))))))
-
-
+                                             {:a [] :b [] :c [] :d []} frames)]
+                (handle-buffer-queue [a c0 h0])
+                (handle-buffer-queue [b c1 h1])
+                (handle-buffer-queue [c c2 h2])
+                (handle-buffer-queue [d c3 h3])
+                (if false (println (str count ":" (- (.toEpochMilli (java.time.Instant/now)) start) "ms")))))
+            (recur)))))))
 
 ;; run
 
-(defn ab [] (async/chan (async/buffer 1)))
+;; we always want the most recent sample
+(defn ab [] (async/chan (async/sliding-buffer 1)))
 
-(defn c0 (ab))
-(defn c1 (ab))
-(defn c2 (ab))
-(defn c3 (ab))
+(def c0 (ab))
+(def c1 (ab))
+(def c2 (ab))
+(def c3 (ab))
 
 (def ES8 (listener
                ;; channels
@@ -80,7 +89,7 @@
                 ;; handlers
                 :h0 cv :h1 cv :h2 cv :h3 cv
                 ;;
-                :audio-format format/4chan-16bit
+                :audio-format format/c-4-16bit
                 ;; soundcard device name
                 :name "ES8"
                 ;;
@@ -88,4 +97,6 @@
 
 ;; go
 
-(ES8)
+;; (loop []
+;;   (println (clojure.string/join " " [(async/<!! c0) (async/<!! c1) (async/<!! c2) (async/<!! c3)]))
+;;     (recur))
