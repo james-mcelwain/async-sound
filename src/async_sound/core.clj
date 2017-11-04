@@ -1,15 +1,11 @@
 (ns async-sound.core
   (:require
    [clojure.string :as str]
-   [clojure.core.async :as async]))
-
-(defmacro when-let*
-  ([bindings & body]
-   (if (seq bindings)
-     (do (println bindings)
-       `(when-let [~(first bindings) ~(second bindings)]
-          (when-let* ~(drop 2 bindings) ~@body)))
-     `(do ~@body))))
+   [clojure.core.async :as async]
+   [async-sound.util :refer [when-let*]]
+   [async-sound.gate :refer [gate]]
+   [async-sound.cv :refer [cv]]
+   [async-sound.format :as format]))
 
 (defn get-mixer-info-by-name [name]
   (filter #(str/includes? (.getName %) name) (javax.sound.sampled.AudioSystem/getMixerInfo)))
@@ -21,23 +17,6 @@
   (if-let [mixer-info (seq (get-mixer-info-by-name name))]
     (javax.sound.sampled.AudioSystem/getMixer (first mixer-info))
     (throw (Exception. (str "No mixer found with name " name)))))
-
-(def audio-format-mono-16
-  (let [sample-rate 44100
-        sample-size 16
-        channels 1 
-        signed true
-        big-endian false]
-    (javax.sound.sampled.AudioFormat. sample-rate sample-size channels signed big-endian)))
-
-
-(def audio-format-4-16
-  (let [sample-rate 44100
-        sample-size 16
-        channels 4
-        signed true
-        big-endian false]
-    (javax.sound.sampled.AudioFormat. sample-rate sample-size channels signed big-endian)))
 
 (defn open-line [line audio-format]
   (do
@@ -54,25 +33,14 @@
       count
       nil)))
 
-(defn average [coll]
-  (int (/ (reduce + coll) (count coll))))
-
-(def channel (async/chan (async/sliding-buffer 1)))
-
 (defn reduce-frames [frames] (reduce (fn [xs [lb hb]] (cons (little-endian lb hb) xs)) [] frames))
 
-
 ;; lib
+(defn handle-buffer-queue [[b chan handler]]
+  (if (and (not (nil? handler)) (not (nil? chan)))
+    (async/>!! chan (handler (reduce-frames b)))))
 
-(defn listener [{name :name
-                 audio-format :audio-format
-                 min :min
-                 max :max
-                 chan-1 :chan-1
-                 chan-2 :chan-2
-                 chan-3 :chan-3
-                 chan-4 :chan-4
-                 frame-rate :frame-rate}]
+(defn listener [{:keys [name audio-format min max c0 c1 c2 c3 h0 h1 h2 h3 frame-rate]}]
   (fn []
     (async/thread
       (with-open [line (-> name mixer get-line (open-line audio-format))
@@ -86,32 +54,38 @@
               (when-let* [count     (did-read line buffer size)
                           ba        (.toByteArray (do (.write out buffer 0 size) out))
                           frames    (partition-all 4 (partition-all 2 ba))
-                          {a :a
-                           b :b
-                           c :c
-                           d :d}    (reduce (fn [{a :a b :b c :c d :d} [af bf cf df]]
-                                              {:a (conj a af)
-                                               :b (conj b bf)
-                                               :c (conj c cf)
-                                               :d (conj d df)})
-                                            {:a [] :b [] :c [] :d []} frames)]
-                (println chan-1 chan-2 chan-3 chan-4)
-                (cond
-                  (not (nil? chan-1)) (async/>!! chan-1 (average (reduce-frames a)))
-                  (not (nil? chan-2)) (async/>!! chan-2 (average (reduce-frames b)))
-                  (not (nil? chan-3)) (async/>!! chan-3 (average (reduce-frames c)))
-                  (not (nil? chan-4)) (async/>!! chan-4 (average (reduce-frames d))))
+                          {:keys [a b c d]} (reduce (fn [{:keys [a b c d]} [af bf cf df]]
+                                                      {:a (conj a af)
+                                                       :b (conj b bf)
+                                                       :c (conj c cf)
+                                                       :d (conj d df)})
+                                                    {:a [] :b [] :c [] :d []} frames)]
+                (map handle-buffer-queue [[a c0 h0] [b c1 h1] [c c2 h2] [d c3 h3]])
                 (recur)))))))))
 
 
 
-(def chan-1 (async/chan (async/buffer 1)))
-(def chan-2 (async/chan (async/buffer 1)))
-(def chan-3 (async/chan (async/buffer 1)))
-(def chan-4 (async/chan (async/buffer 1)))
+;; run
 
-(def listener (listener {:chan-1 chan-1 :chan-2 chan-2 :chan-3 chan-3 :chan-4 chan-4 :audio-format audio-format-4-16 :name "ES8" :frame-rate 30}))
+(defn ab [] (async/chan (async/buffer 1)))
 
-(listener)
+(defn c0 (ab))
+(defn c1 (ab))
+(defn c2 (ab))
+(defn c3 (ab))
 
- (async/<!! chan-2)
+(def ES8 (listener
+               ;; channels
+               {:c0 c0 :c1 c1 :c2 c2 :c3 c3
+                ;; handlers
+                :h0 cv :h1 cv :h2 cv :h3 cv
+                ;;
+                :audio-format format/4chan-16bit
+                ;; soundcard device name
+                :name "ES8"
+                ;;
+                :frame-rate 30}))
+
+;; go
+
+(ES8)
