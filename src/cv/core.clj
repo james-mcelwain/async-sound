@@ -45,7 +45,7 @@
     (async/thread
       (with-open [line (-> name mixer get-line (open-line audio-format))
                   out (java.io.ByteArrayOutputStream.)]
-        (let [size (/ (.getBufferSize line) frame-rate)
+        (let [size 4096
               buffer (byte-array size)]
 
           ;; listen

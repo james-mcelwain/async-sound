@@ -6,23 +6,47 @@
 
 (def chan (async/chan (async/buffer 1)))
 
-(defn map-sound [val val2]
-  [(q/map-range val -30000 30000 0 255) (q/map-range val2 -30000 30000 0 255) (q/map-range val 30000 -30000 0 255) ])
+(defn map-sound [val]
+  [(q/map-range val -30000 30000 0 255) 0 (q/map-range val 30000 -30000 0 255) ])
+
+(defn fps []
+  (q/fill 0)
+  (q/text-size 32)
+  (q/text (str @!m "/" @!n) 20 80)
+  (q/text (str (int (q/current-frame-rate))) 20 40))
 
 (defn setup []
   (core/ES8)
-  {:r 0 :g 0 :b 0})
+  (q/frame-rate 30)
+  {:r 0 :g 0 :b 0 :val 0})
+
+
+(def !n (atom 0))
+(def !m (atom 0))
+
+(defn miss! [[val chan]]
+  (swap! !n inc)
+  (println val)
+  (if (= chan :default)
+    (do
+      (swap! !m inc)
+      (q/fill 0)
+      (q/text-size 32)
+      (q/text (str @!m "/" @!n) 20 80)))
+  val)
 
 (defn update-state [state]
-  (let [[r g b] (map-sound (async/<!! core/c0) (async/<!! core/c1))]
-    {:r r :g g :b b}))
+  (let [val (miss! (async/alts!! [core/c0] :default (:val state)))
+        [r g b] (map-sound val)]
+    {:r r :g g :b b :val val}))
 
-(defn draw-state [{r :r g :g b :b}]
-  (q/background r g b))
+(defn draw-state [{:keys [r g b a]}]
+  (q/background r g b)
+  (fps))
 
 (q/defsketch cv-1
   :title "cv-1"
-  :size [1000 600]
+  :size [1000 400]
   :setup setup
   :update update-state
   :draw draw-state
