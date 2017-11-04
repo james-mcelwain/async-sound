@@ -1,4 +1,4 @@
-(ns async-sound.util)
+(ns cv.util)
 
 (defn slurp-bytes
   [x]

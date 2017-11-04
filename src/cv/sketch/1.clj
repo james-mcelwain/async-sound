@@ -1,5 +1,5 @@
-(ns async-sound.sketch.1
-  (:require [async-sound.core :as core]
+(ns cv.sketch.1
+  (:require [cv.core :as core]
             [clojure.core.async :as async]
             [quil.core :as q]
             [quil.middleware :as m]))
@@ -22,8 +22,8 @@
 (defn draw-state [{r :r g :g b :b}]
   (q/background r g b))
 
-(q/defsketch async-sound-1
-  :title "async-sound-1"
+(q/defsketch cv-1
+  :title "cv-1"
   :size [1000 600]
   :setup setup
   :update update-state

@@ -1,4 +1,4 @@
-(ns async-sound.gate)
+(ns cv.gate)
 
 ;; magic numbers
 (def default-ratio 8/10)

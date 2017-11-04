@@ -1,11 +1,11 @@
-(ns async-sound.core
+(ns cv.core
   (:require
    [clojure.string :as str]
    [clojure.core.async :as async]
-   [async-sound.util :refer [when-let*]]
-   [async-sound.gate :refer [gate]]
-   [async-sound.cv :refer [cv]]
-   [async-sound.format :as format]))
+   [cv.util :refer [when-let*]]
+   [cv.gate :refer [gate]]
+   [cv.cv :refer [cv]]
+   [cv.format :as format]))
 
 (defn get-mixer-info-by-name [name]
   (filter #(str/includes? (.getName %) name) (javax.sound.sampled.AudioSystem/getMixerInfo)))

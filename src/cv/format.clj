@@ -1,4 +1,4 @@
-(ns async-sound.format)
+(ns cv.format)
 
 (def mono-16bit
   (let [sample-rate 44100
