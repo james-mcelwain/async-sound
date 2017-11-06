@@ -9,6 +9,13 @@
 (defn map-sound [val]
   [(q/map-range val -30000 30000 0 255) 0 (q/map-range val 30000 -30000 0 255) ])
 
+
+
+(def !n (atom 0))
+(def !m (atom 0))
+
+
+
 (defn fps []
   (q/fill 0)
   (q/text-size 32)
@@ -17,16 +24,11 @@
 
 (defn setup []
   (core/ES8)
-  (q/frame-rate 30)
+  (q/frame-rate 10)
   {:r 0 :g 0 :b 0 :val 0})
-
-
-(def !n (atom 0))
-(def !m (atom 0))
 
 (defn miss! [[val chan]]
   (swap! !n inc)
-  (println val)
   (if (= chan :default)
     (do
       (swap! !m inc)

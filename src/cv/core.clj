@@ -40,38 +40,35 @@
   (if (and (not (nil? handler)) (not (nil? chan)))
     (async/>!! chan (handler (reduce-frames b)))))
 
-(defn listener [{:keys [name audio-format min max c0 c1 c2 c3 h0 h1 h2 h3 frame-rate]}]
+(defn listen [line out {:keys [name audio-format min max channels handlers frame-rate]}]
+  ;; listen
+  (println channels)
+  (println (count channels))
+  (let [size 512
+        buffer (byte-array size)]
+    (loop []
+      (do
+        (.reset out)
+        (when-let* [start      (.toEpochMilli (java.time.Instant/now))
+                    c          (did-read line buffer size)
+                    ba         (.toByteArray (do (.write out buffer 0 size) out))
+                    frames     (partition-all (count channels) (partition-all 2 ba))
+                    buffers    (reduce
+                                       (fn [buffers frames]
+                                         (map (fn [[buffer frame]] (conj buffer frame)) (partition 2 (interleave buffers frames))))
+                                       (take (count channels) (cycle [[]]))
+                                       frames)]
+          (map handle-buffer-queue (partition 3 (interleave buffers channels handlers)))
+          (if true (println (str c ":" (- (.toEpochMilli (java.time.Instant/now)) start) "ms")))))
+      ;; (.flush line)
+      (recur))))
+
+(defn listener [opts]
   (fn []
     (async/thread
-      (with-open [line (-> name mixer get-line (open-line audio-format))
+      (with-open [line (-> (:name opts) mixer get-line (open-line (:audio-format opts)))
                   out (java.io.ByteArrayOutputStream.)]
-        (let [size 4096
-              buffer (byte-array size)]
-
-          ;; listen
-          (loop []
-            (do
-              (.reset out)
-              (when-let* [start     (.toEpochMilli (java.time.Instant/now))
-                          count     (did-read line buffer size)
-                          ba        (.toByteArray (do (.write out buffer 0 size) out))
-                          frames    (partition-all 4 (partition-all 2 ba))
-                          {:keys [a b c d]} (reduce
-                                                 ;;               |                      |
-                                                 ;;               | c0    c1    c2    c3 |
-                                                 ;;               | f0    f1    f2    f3 |
-                                             (fn [{:keys [a b c d]} [af    bf    cf    df]]
-                                                      {:a (conj a af)
-                                                       :b (conj b bf)
-                                                       :c (conj c cf)
-                                                       :d (conj d df)})
-                                             {:a [] :b [] :c [] :d []} frames)]
-                (handle-buffer-queue [a c0 h0])
-                (handle-buffer-queue [b c1 h1])
-                (handle-buffer-queue [c c2 h2])
-                (handle-buffer-queue [d c3 h3])
-                (if false (println (str count ":" (- (.toEpochMilli (java.time.Instant/now)) start) "ms")))))
-            (recur)))))))
+        (listen line out opts)))))
 
 ;; run
 
@@ -85,9 +82,8 @@
 
 (def ES8 (listener
                ;; channels
-               {:c0 c0 :c1 c1 :c2 c2 :c3 c3
-                ;; handlers
-                :h0 cv :h1 cv :h2 cv :h3 cv
+               {:channels [c0 c1 c2 c3]
+                :handlers [cv cv cv cv]
                 ;;
                 :audio-format format/c-4-16bit
                 ;; soundcard device name
@@ -97,6 +93,10 @@
 
 ;; go
 
-;; (loop []
-;;   (println (clojure.string/join " " [(async/<!! c0) (async/<!! c1) (async/<!! c2) (async/<!! c3)]))
-;;     (recur))
+(ES8)
+
+(async/thread (loop []
+  (println (clojure.string/join " " [(async/<!! c0) (async/<!! c1) (async/<!! c2) (async/<!! c3)]))
+  (recur)))
+
+(println (clojure.string/join " " [(async/<!! c0) (async/<!! c1) (async/<!! c2) (async/<!! c3)]))
