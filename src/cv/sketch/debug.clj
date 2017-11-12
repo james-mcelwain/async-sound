@@ -1,4 +1,4 @@
-(ns cv.sketch.debug
+(ns cv.sketch.1
   (:require [cv.core :as core]
             [clojure.core.async :as async]
             [quil.core :as q]
