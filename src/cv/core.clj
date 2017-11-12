@@ -37,9 +37,17 @@
 
 ;; lib
 (defn handle-buffer-queue [[b chan handler]]
-  (println b chan handler)
   (if (and (not (nil? handler)) (not (nil? chan)))
     (async/>!! chan (handler (reduce-frames b)))))
+
+(def !run (atom true))
+
+
+(defn stop []
+  (swap! !run (fn [_] false)))
+
+(defn start []
+  (swap! !run (fn [_] true)))
 
 (defn conj-frames [buffers frames]
   (map (fn [[buffer frame]] (conj buffer frame)) (partition 2 (interleave buffers frames))))
@@ -56,12 +64,15 @@
                     ba             (.toByteArray (do (.write out buffer 0 size) out))
                     frames         (partition-all (count channels) (partition-all 2 ba))
                     buffers        (reduce conj-frames (take (count channels) (cycle [[]])) frames)
-                    channel-groups (interleave buffers channels handlers)]
-          (map handle-buffer-queue (partition 3 channel-groups))
-          (if false (do
-                     (println (str c ":" (- (.toEpochMilli (java.time.Instant/now)) start) "ms"))))))
-      ;; (.flush line)
-      (recur))))
+                    channel-groups  (partition 3 (interleave buffers channels handlers))]
+
+          (dorun (map handle-buffer-queue channel-groups))
+
+          (if false (do (println (str c ":" (- (.toEpochMilli (java.time.Instant/now)) start) "ms"))))))
+
+      (if @!run
+        (recur)
+        true))))
 
 (defn listener [opts]
   (fn []
@@ -69,8 +80,6 @@
       (with-open [line (-> (:name opts) mixer get-line (open-line (:audio-format opts)))
                   out (java.io.ByteArrayOutputStream.)]
         (listen line out opts)))))
-
-;; run
 
 ;; we always want the most recent sample
 (defn ab [] (async/chan (async/sliding-buffer 1)))
@@ -93,10 +102,9 @@
 
 ;; go
 
+(start)
 (ES8)
 
-(async/>!! c3 1)
-
-(async/thread (loop []
-  (println (clojure.string/join " " [(async/<!! c0) (async/<!! c1) (async/<!! c2) (async/<!! c3)]))
-  (recur)))
+;; (async/thread (loop []
+;;   (println (clojure.string/join " " [(async/<!! c0) (async/<!! c1) (async/<!! c2) (async/<!! c3)]))
+;;   (recur)))

@@ -9,8 +9,7 @@
 (defmacro when-let*
   ([bindings & body]
    (if (seq bindings)
-     (do (println bindings)
-         `(when-let [~(first bindings) ~(second bindings)]
-            (when-let* ~(drop 2 bindings) ~@body)))
+     `(when-let [~(first bindings) ~(second bindings)]
+        (when-let* ~(drop 2 bindings) ~@body))
      `(do ~@body))))
 
