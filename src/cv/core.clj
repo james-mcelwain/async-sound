@@ -37,29 +37,29 @@
 
 ;; lib
 (defn handle-buffer-queue [[b chan handler]]
+  (println b chan handler)
   (if (and (not (nil? handler)) (not (nil? chan)))
     (async/>!! chan (handler (reduce-frames b)))))
 
+(defn conj-frames [buffers frames]
+  (map (fn [[buffer frame]] (conj buffer frame)) (partition 2 (interleave buffers frames))))
+
 (defn listen [line out {:keys [name audio-format min max channels handlers frame-rate]}]
   ;; listen
-  (println channels)
-  (println (count channels))
   (let [size 512
         buffer (byte-array size)]
     (loop []
       (do
         (.reset out)
-        (when-let* [start      (.toEpochMilli (java.time.Instant/now))
-                    c          (did-read line buffer size)
-                    ba         (.toByteArray (do (.write out buffer 0 size) out))
-                    frames     (partition-all (count channels) (partition-all 2 ba))
-                    buffers    (reduce
-                                       (fn [buffers frames]
-                                         (map (fn [[buffer frame]] (conj buffer frame)) (partition 2 (interleave buffers frames))))
-                                       (take (count channels) (cycle [[]]))
-                                       frames)]
-          (map handle-buffer-queue (partition 3 (interleave buffers channels handlers)))
-          (if true (println (str c ":" (- (.toEpochMilli (java.time.Instant/now)) start) "ms")))))
+        (when-let* [start          (.toEpochMilli (java.time.Instant/now))
+                    c              (did-read line buffer size)
+                    ba             (.toByteArray (do (.write out buffer 0 size) out))
+                    frames         (partition-all (count channels) (partition-all 2 ba))
+                    buffers        (reduce conj-frames (take (count channels) (cycle [[]])) frames)
+                    channel-groups (interleave buffers channels handlers)]
+          (map handle-buffer-queue (partition 3 channel-groups))
+          (if false (do
+                     (println (str c ":" (- (.toEpochMilli (java.time.Instant/now)) start) "ms"))))))
       ;; (.flush line)
       (recur))))
 
@@ -85,7 +85,7 @@
                {:channels [c0 c1 c2 c3]
                 :handlers [cv cv cv cv]
                 ;;
-                :audio-format format/c-4-16bit
+                :audio-format format/x4-96000-16bit
                 ;; soundcard device name
                 :name "ES8"
                 ;;
@@ -95,8 +95,8 @@
 
 (ES8)
 
+(async/>!! c3 1)
+
 (async/thread (loop []
   (println (clojure.string/join " " [(async/<!! c0) (async/<!! c1) (async/<!! c2) (async/<!! c3)]))
   (recur)))
-
-(println (clojure.string/join " " [(async/<!! c0) (async/<!! c1) (async/<!! c2) (async/<!! c3)]))
