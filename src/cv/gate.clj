@@ -1,8 +1,10 @@
 (ns cv.gate)
 
 ;; magic numbers
-(def default-ratio 8/10)
-(def default-max 0) ;; TODO: find avg max across channels
+(def default-ratio 5/10)
+
+(def default-max 15000) ;; TODO: find avg max across channels
+
 (def default-length 8)
 
 ;; fn
@@ -24,12 +26,13 @@
 
   ([channel buffer n ratio]
    (let [threshold (* ratio (:max channel))
+         avg     (cv.cv/cv buffer)
          length  (reduce (fn [l x]
                            (if (or (> l n) (> x threshold))
                              (inc l)
                              0))
                          0 buffer)]
-     {:gate (> length n) :length length})))
+     {:avg avg :gate (> length n) :length length})))
 
 (defn trigger [buffer]
   "

@@ -40,14 +40,7 @@
   (if (and (not (nil? handler)) (not (nil? chan)))
     (async/>!! chan (handler (reduce-frames b)))))
 
-(def !run (atom true))
-
-
-(defn stop []
-  (swap! !run (fn [_] false)))
-
-(defn start []
-  (swap! !run (fn [_] true)))
+(def !listening (atom true))
 
 (defn conj-frames [buffers frames]
   (map (fn [[buffer frame]] (conj buffer frame)) (partition 2 (interleave buffers frames))))
@@ -65,14 +58,10 @@
                     frames         (partition-all (count channels) (partition-all 2 ba))
                     buffers        (reduce conj-frames (take (count channels) (cycle [[]])) frames)
                     channel-groups  (partition 3 (interleave buffers channels handlers))]
-
-          (dorun (map handle-buffer-queue channel-groups))
-
-          (if false (do (println (str c ":" (- (.toEpochMilli (java.time.Instant/now)) start) "ms"))))))
-
-      (if @!run
+          (run! handle-buffer-queue channel-groups)
+      (if @!listening
         (recur)
-        true))))
+        true))))))
 
 (defn listener [opts]
   (fn []
@@ -91,8 +80,8 @@
 
 (def ES8 (listener
                ;; channels
-               {:channels [c0 c1 c2 c3]
-                :handlers [cv cv cv cv]
+               {:channels [c0 c1   c2 c3]
+                :handlers [cv gate cv cv]
                 ;;
                 :audio-format format/x4-96000-16bit
                 ;; soundcard device name
@@ -100,11 +89,11 @@
                 ;;
                 :frame-rate 30}))
 
-;; go
+;; (ES8)
 
-(start)
-(ES8)
+(async/<!! c0)
 
+;; debug
 ;; (async/thread (loop []
 ;;   (println (clojure.string/join " " [(async/<!! c0) (async/<!! c1) (async/<!! c2) (async/<!! c3)]))
 ;;   (recur)))
