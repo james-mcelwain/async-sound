@@ -89,7 +89,7 @@
                 ;;
                 :frame-rate 30}))
 
-;; (ES8)
+(ES8)
 
 (async/<!! c0)
 
