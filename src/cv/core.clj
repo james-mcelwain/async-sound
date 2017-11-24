@@ -88,12 +88,3 @@
                 :name "ES8"
                 ;;
                 :frame-rate 30}))
-
-(ES8)
-
-(async/<!! c0)
-
-;; debug
-;; (async/thread (loop []
-;;   (println (clojure.string/join " " [(async/<!! c0) (async/<!! c1) (async/<!! c2) (async/<!! c3)]))
-;;   (recur)))
