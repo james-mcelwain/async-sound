@@ -1,4 +1,5 @@
-(ns cv.gate)
+(ns cv.gate
+  (:require [cv.cv]))
 
 ;; magic numbers
 (def default-ratio 5/10)
