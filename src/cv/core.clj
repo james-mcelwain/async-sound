@@ -85,6 +85,6 @@
                 ;;
                 :audio-format format/x4-96000-16bit
                 ;; soundcard device name
-                :name "ES8"
+                :name "ES-8"
                 ;;
                 :frame-rate 30}))

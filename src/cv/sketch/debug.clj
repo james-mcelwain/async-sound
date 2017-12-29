@@ -17,6 +17,7 @@
   (q/text (str (int (q/current-frame-rate))) 20 40))
 
 (defn setup []
+  ;; (core/ES8)
   (q/frame-rate 30)
   {:r 0 :g 0 :b 0 :val 0})
 
@@ -32,8 +33,10 @@
 
 (defn update-state [state]
   (let [val (miss! (async/alts!! [core/c0] :default (:val state)))
+        [gate] (async/alts!! [core/c1] :default {:gate false})
         [r g b] (map-sound val)]
-    {:r r :g g :b b :val val}))
+    {:r r :g (if (:gate gate) 0 255) :b b :val val}))
+
 
 (defn draw-state [{:keys [r g b a]}]
   (q/background r g b)
