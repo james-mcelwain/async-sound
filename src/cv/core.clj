@@ -8,6 +8,7 @@
    [cv.format :as format]))
 
 (defn get-mixer-info-by-name [name]
+  (map #(println (.getName %)) (javax.sound.sampled.AudioSystem/getMixerInfo))
   (filter #(str/includes? (.getName %) name) (javax.sound.sampled.AudioSystem/getMixerInfo)))
 
 (defn get-line [mixer]
@@ -80,8 +81,8 @@
 
 (def ES8 (listener
                ;; channels
-               {:channels [c0 c1   c2 c3]
-                :handlers [cv gate cv cv]
+               {:channels [c0 c1 c2 c3]
+                :handlers [cv cv cv cv]
                 ;;
                 :audio-format format/x4-96000-16bit
                 ;; soundcard device name
