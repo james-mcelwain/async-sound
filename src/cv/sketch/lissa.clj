@@ -6,14 +6,14 @@
    [quil.middleware :as m]))
 
 ;; CONSTANTS
-(def  point-count      450)
-(def  freq-x            4)
+(def  point-count      24)
+(def  freq-x            3)
 (def  freq-y            1)
 (def  mod-freq-y        2)
 (def  line-weight       0.3)
 (def  line-color        20)
 (def  line-alpha        20)
-(def  connection-radius 80)
+(def  connection-radius 400)
 
 ;; VARS
 (def !phi         (atom 15))

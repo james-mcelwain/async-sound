@@ -72,12 +72,12 @@
         (listen line out opts)))))
 
 ;; we always want the most recent sample
-(defn ab [] (async/chan (async/sliding-buffer 1)))
+(defn channel [] (async/chan (async/sliding-buffer 1)))
 
-(def c0 (ab))
-(def c1 (ab))
-(def c2 (ab))
-(def c3 (ab))
+(def c0 (channel))
+(def c1 (channel))
+(def c2 (channel))
+(def c3 (channel))
 
 (def ES8 (listener
                ;; channels
