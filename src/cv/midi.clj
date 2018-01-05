@@ -6,7 +6,6 @@
 (defn event-handler [channels]
   (println "listening to " channels)
   (fn [midi-msg]
-    (println midi-msg)
     ;; index of channel == cc number
     (if-let [chan (get channels (:note midi-msg))]
       (async/>!! chan (:velocity midi-msg)))))
@@ -20,10 +19,4 @@
 
 (def cc0 (core/channel))
 
-(defn debug []
-  (let [d (midi-bus {:channels [cc0] :name "iac"})]
-    (async/thread
-      (loop []
-        (println (async/<!! cc0))
-        (recur)))
-    d))
+(defn IAC [] (midi-bus {:channels [cc0] :name "iac"}))

@@ -1,6 +1,7 @@
 (ns gen-art.Sketch.lissa
   (:require
    [cv.core :as core]
+   [cv.midi :as midi]
    [clojure.core.async :as async]
    [quil.core :as q]
    [quil.middleware :as m]))
@@ -43,12 +44,12 @@
   (* p (- (/ s 2) 30)))
 
 (defn calc-points []
-  ;; (map #(let [angle (calc-angle %)
-  ;;              x     (calc-x angle)
-  ;;              y     (calc-y angle)]
-  ;;          (point
-  ;;           (scale-point x (q/width))
-  ;;           (scale-point y (q/height)))) (range point-count))
+  (map #(let [angle (calc-angle %)
+               x     (calc-x angle)
+               y     (calc-y angle)]
+           (point
+            (scale-point x (q/width))
+            (scale-point y (q/height)))) (range point-count))
 
   (for [i (range point-count)
         :let [angle (calc-angle i)
@@ -59,18 +60,18 @@
      (scale-point y (q/height)))))
 
 (defn update-vars []
-  (let [[c0] (async/alts!! [core/c0] :default @!phi)
+  (let [[c0] (async/alts!! [midi/cc0] :default @!phi)
         [c1] (async/alts!! [core/c1] :default @!mod-freq-x)
         [c2] (async/alts!! [core/c2] :default 0)
         [c3] (async/alts!! [core/c3] :default 0)]
 
     (debug c0 c1 c2 c3)
-    (swap! !phi (fn [& args] (q/map-range c0 -30000 30000 0 360)))
+    (swap! !phi (fn [& args] (q/map-range c0 0 127 1 359)))
     (swap! !mod-freq-x (fn [& args] (q/map-range c1 -30000 30000 3 6)))))
 
 (defn setup []
   (q/frame-rate 30)
-  (core/ES8)
+  (midi/IAC)
   (calc-points))
 
 (defn update-state [points]
@@ -100,7 +101,6 @@
           (q/line x1 y1 x2 y2))))
 
   (q/pop-matrix))
-
 
 (q/defsketch gen-art
   :title "Lissajous"
