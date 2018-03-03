@@ -6,4 +6,5 @@
   :dependencies [[org.clojure/clojure "1.9.0"]
                  [org.clojure/core.async "0.3.443"]
                  [overtone/midi-clj "0.5.0"]
+                 [expound "0.5.0"]
                  [quil "2.6.0"]])
