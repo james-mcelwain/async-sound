@@ -1,29 +1,11 @@
 (ns cv.core
   (:require
-   [clojure.string :as str]
    [clojure.core.async :as async]
    [cv.util :refer [when-let*]]
    [cv.gate :refer [gate]]
+   [cv.mixer :refer [mixer get-line open0line]]
    [cv.cv :refer [cv]]
    [cv.format :as format]))
-
-(defn get-mixer-info-by-name [name]
-  (map #(println (.getName %)) (javax.sound.sampled.AudioSystem/getMixerInfo))
-  (filter #(str/includes? (.getName %) name) (javax.sound.sampled.AudioSystem/getMixerInfo)))
-
-(defn get-line [mixer]
-  (.getLine mixer (first (.getTargetLineInfo mixer))))
-
-(defn mixer [name]
-  (if-let [mixer-info (seq (get-mixer-info-by-name name))]
-    (javax.sound.sampled.AudioSystem/getMixer (first mixer-info))
-    (throw (Exception. (str "No mixer found with name " name)))))
-
-(defn open-line [line audio-format]
-  (do
-    (.open line audio-format)
-    (.start line)
-    line))
 
 (defn little-endian [b1 b2]
   (short (bit-or (bit-and b1 0xFF) (bit-shift-left b2 8))))
@@ -58,7 +40,7 @@
                     ba             (.toByteArray (do (.write out buffer 0 size) out))
                     frames         (partition-all (count channels) (partition-all 2 ba))
                     buffers        (reduce conj-frames (take (count channels) (cycle [[]])) frames)
-                    channel-groups  (partition 3 (interleave buffers channels handlers))]
+                    channel-groups (partition 3 (interleave buffers channels handlers))]
           (run! handle-buffer-queue channel-groups)
       (if @!listening
         (recur)
