@@ -3,7 +3,7 @@
    [clojure.core.async :as async]
    [cv.util :refer [when-let*]]
    [cv.gate :refer [gate]]
-   [cv.mixer :refer [mixer get-line open0line]]
+   [cv.mixer :refer [mixer get-line open-line]]
    [cv.cv :refer [cv]]
    [cv.format :as format]))
 

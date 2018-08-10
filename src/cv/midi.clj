@@ -19,4 +19,37 @@
 
 (def cc0 (core/channel))
 
-(defn IAC [] (midi-bus {:channels [cc0] :name "iac"}))
+(defn vir-midi [] (midi-bus {:channels [cc0] :name "VirMIDI 1-0"}))
+
+
+(def MidiInDeviceInfo (nth (.getDeclaredClasses com.sun.media.sound.MidiInDeviceProvider) 0))
+
+(defn- is-device-instance?
+  [device] (.equals MidiInDeviceInfo (.getClass device)))
+
+(defn get-devices [] (seq (javax.sound.midi.MidiSystem/getMidiDeviceInfo)))
+
+(defn- get-device-info [name]
+  (first (filter #( and (= (.getName %) name) (is-device-instance? %)) (get-devices))))
+
+(defn get-device [name]
+  (let [device-info (get-device-info name)]
+    (javax.sound.midi.MidiSystem/getMidiDevice device-info)))
+
+(defn- open-device [device]
+  (if (not (.isOpen device))
+    (.open device)))
+
+(defn ->Reciever []
+  (reify javax.sound.midi.Receiver
+    (close [this] (println "Reciever was closed early."))
+    (send [this msg time] (println msg))))
+
+(defn- set-reciever [device]
+  (.setReceiver (.getTransmitter device) (->Reciever)))
+
+
+(def device (get-device "VirMIDI [hw:1,0,0]"))
+
+(open-device device)
+(set-reciever device)
