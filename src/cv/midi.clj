@@ -19,8 +19,11 @@
 
 (def cc0 (core/channel))
 
-(defn vir-midi [] (midi-bus {:channels [cc0] :name "VirMIDI 1-0"}))
+(defn vir-midi [] (midi-bus {:channels [cc0] :name "VirMIDI [hw:1,0,0]"}))
 
+(def a (vir-midi))
+
+(map :name )(midi/midi-devices)
 
 (def MidiInDeviceInfo (nth (.getDeclaredClasses com.sun.media.sound.MidiInDeviceProvider) 0))
 
@@ -53,3 +56,5 @@
 
 (open-device device)
 (set-reciever device)
+
+(.getReceiver (.getTransmitter device))

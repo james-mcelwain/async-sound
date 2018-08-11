@@ -48,8 +48,6 @@
   (q/fill 255)
   (q/ellipse x y 3 3))
 
-(async/<!! core/c0)
-
 (q/defsketch scope
   :title "scope"
   :size [1000 400]
