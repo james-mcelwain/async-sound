@@ -23,6 +23,7 @@
   (if (and (not (nil? handler)) (not (nil? chan)))
     (async/>!! chan (handler (reduce-frames b)))))
 
+;; global suspend switch
 (def !listening (atom true))
 
 (defn conj-frames [buffers frames]
@@ -51,10 +52,14 @@
     (async/thread
       (with-open [line (-> (:name opts) mixer get-line (open-line (:audio-format opts)))
                   out (java.io.ByteArrayOutputStream.)]
+        (println (str "Listening to " (:name opts)))
         (listen line out opts)))))
 
 ;; we always want the most recent sample
-(defn channel [] (async/chan (async/sliding-buffer 1)))
+(defn channel []
+  (async/chan (async/sliding-buffer 1)))
+
+;; ----------------------------------------------------------------------------------------------
 
 (def c0 (channel))
 (def c1 (channel))
@@ -71,3 +76,4 @@
                 :name "ES-8"
                 ;;
                 :frame-rate 30}))
+
