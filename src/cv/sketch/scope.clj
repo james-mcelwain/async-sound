@@ -26,11 +26,12 @@
 
     {:lx x
      :ly y
+     :gate (:gate c1)
      :c (rest c)
      :x (first c)
-     :Y (q/map-range val 30000 -30000 0 (q/height))}))
+     :y (q/map-range val 30000 -30000 0 (q/height))}))
 
-(defn draw-state [{:keys [x y lx ly]}]
+(defn draw-state [{:keys [gate x y lx ly]}]
   (q/stroke 0)
   (q/fill 0)
   (q/rect x 0 100 (q/height))
@@ -42,7 +43,10 @@
   (if (> x lx)
     (do
       (q/stroke-weight 1)
-      (q/stroke 100)
+
+      (if gate
+        (q/stroke 255 0 0 )
+        (q/stroke 100))
       (q/line x y lx ly)))
 
   (q/fill 255)

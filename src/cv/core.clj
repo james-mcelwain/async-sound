@@ -10,7 +10,7 @@
 (defn little-endian [b1 b2]
   (short (bit-or (bit-and b1 0xFF) (bit-shift-left b2 8))))
 
-(defn did-read [in buffer size]
+(defn read [in buffer size]
   (let [count (.read in buffer 0 size)]
     (if (not (zero? count))
       count
@@ -29,6 +29,19 @@
 (defn conj-frames [buffers frames]
   (map (fn [[buffer frame]] (conj buffer frame)) (partition 2 (interleave buffers frames))))
 
+(defn get-ms []
+  (.toEpochMilli (java.time.Instant/now)))
+
+(defn raw->ba
+  ([line out buffer]
+   (raw->ba line out buffer 512))
+  ([line out buffer size]
+
+   (if (read line buffer size)
+     (do
+       (.write out buffer 0 size)
+       (.toByteArray out)))))
+
 (defn listen [line out {:keys [name audio-format min max channels handlers frame-rate]}]
   ;; listen
   (let [size 512
@@ -36,9 +49,8 @@
     (loop []
       (do
         (.reset out)
-        (when-let* [start          (.toEpochMilli (java.time.Instant/now))
-                    c              (did-read line buffer size)
-                    ba             (.toByteArray (do (.write out buffer 0 size) out))
+        (when-let* [start          (get-ms)
+                    ba             (raw->ba line out buffer)
                     frames         (partition-all (count channels) (partition-all 2 ba))
                     buffers        (reduce conj-frames (take (count channels) (cycle [[]])) frames)
                     channel-groups (partition 3 (interleave buffers channels handlers))]
@@ -69,7 +81,7 @@
 (def ES8 (listener
                ;; channels
                {:channels [c0 c1 c2 c3]
-                :handlers [cv cv cv cv]
+                :handlers [cv gate cv cv]
                 ;;
                 :audio-format format/x4-96000-16bit
                 ;; soundcard device name
@@ -77,3 +89,4 @@
                 ;;
                 :frame-rate 30}))
 
+(ES8)
