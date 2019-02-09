@@ -37,19 +37,17 @@
               size 512
               buf (byte-array size)
               out (java.io.ByteArrayOutputStream.)]
-    (do
-      (open-line line audio-format)
-      (->Mixer name line out buf))
-    (throw (Exception. (str "No mixer found with name " name)))))
+    (->Mixer name line out buf)))
 
+(defn open [mixer audio-format]
+  (open-line (:line mixer) audio-format))
 
-(defn listen [mixer {:keys []}]
-
-  )
+(defn formats [mixer]
+  (map str (.getFormats (.getLineInfo (:line mixer)))))
 
 (defn read->ba
   ([mixer]
-   (read->ba mixer 512))
+   (read->ba mixer (count (:buf mixer))))
   ([mixer size]
    (let [line (:line mixer)
          out (:out mixer)
@@ -59,10 +57,10 @@
          (.write out buffer 0 size)
          (.toByteArray out))))))
 
-(defn read->ba [mixer]
-
-  )
-
 (list-mixers)
 
-(def es8 (make-mixer "ES-8" {:audio-rate cv.format/x4-44100-16bit}))
+(def es8 (make-mixer "ES-8" {:audio-format cv.format/x12-96000-24bit}))
+
+(map println (formats es8))
+
+(open es8 cv.format/x2-41000-16bit)
