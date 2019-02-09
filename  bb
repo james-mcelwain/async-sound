@@ -1,0 +1,66 @@
+;; Connected to nREPL server - nrepl://localhost:52866
+;; CIDER 0.20.0snapshot (package: 20190105.1840), nREPL 0.5.3
+;; Clojure 1.9.0, Java 11.0.2
+;;     Docs: (doc function-name)
+;;           (find-doc part-of-name)
+;;   Source: (source function-name)
+;;  Javadoc: (javadoc java-object-or-class)
+;;     Exit: <C-c C-q>
+;;  Results: Stored in vars *1, *2, *3, an exception in *e;
+;; ======================================================================
+;; If you’re new to CIDER it is highly recommended to go through its
+;; manual first. Type <M-x cider-view-manual> to view it.
+;; In case you’re seeing any warnings you should consult the manual’s
+;; "Troubleshooting" section.
+;;
+;; Here are few tips to get you started:
+;;
+;; * Press <C-h m> to see a list of the keybindings available (this
+;;   will work in every Emacs buffer)
+;; * Press <, ,> to quickly invoke some REPL command
+;; * Press <, s s> to switch between the REPL and a Clojure file
+;; * Press <M-x cider-find-var> to jump to the source of something (e.g. a var, a
+;;   Java method)
+;; * Press <, h h> to view the documentation for something (e.g.
+;;   a var, a Java method)
+;; * Enable ‘eldoc-mode’ to display function & method signatures in the minibuffer.
+;; * Print CIDER’s refcard and keep it close to your keyboard.
+;;
+;; CIDER is super customizable - try <M-x customize-group cider> to
+;; get a feel for this. If you’re thirsty for knowledge you should try
+;; <M-x cider-drink-a-sip>.
+;;
+;; If you think you’ve encountered a bug (or have some suggestions for
+;; improvements) use <M-x cider-report-bug> to report it.
+;;
+;; Above all else - don’t panic! In case of an emergency - procure
+;; some (hard) cider and enjoy it responsibly!
+;;
+;; You can remove this message with the <M-x cider-repl-clear-help-banner> command.
+;; You can disable it from appearing on start by setting
+;; ‘cider-repl-display-help-banner’ to nil.
+;; ======================================================================
+user> (ns cv.mixer
+        (:require [clojure.string :as str]))
+nil
+cv.mixer> (ns cv.mixer
+        (:require [clojure.string :as str]))
+nil
+cv.mixer> (list-mixers)
+("Port Built-in Microphone" "Port Built-in Output" "Port Aggregate Device" "Default Audio Device" "Built-in Microphone" "Built-in Output" "Aggregate Device")
+IllegalArgumentException Definition of function close in protocol Closeable must take at least one arg.  clojure.core/emit-protocol/fn--7697 (core_deftype.clj:650)
+CompilerException java.lang.IllegalArgumentException: No matching ctor found for class cv.mixer.Mixer, compiling:(/Users/jcm/src/github.com/jmcelwain/cv/src/cv/mixer.clj:10:1) 
+ArityException Wrong number of args (0) passed to: mixer/eval12805/->Mixer--12820  clojure.lang.AFn.throwArity (AFn.java:429)
+hi!!
+hi!!
+hi!!
+hi!!
+hi!!
+cv.mixer> 
+cv.mixer> 
+cv.mixer> 
+cv.mixer> 
+cv.mixer> 
+hi!!
+hi!!
+cv.mixer> 

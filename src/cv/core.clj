@@ -2,8 +2,9 @@
   (:require
    [clojure.core.async :as async]
    [cv.util :refer [when-let*]]
+   [cv.channel :as channel]
    [cv.gate :refer [gate]]
-   [cv.mixer :refer [mixer get-line open-line]]
+   [cv.mixer :as mixer]
    [cv.cv :refer [cv]]
    [cv.format :as format]))
 
@@ -21,7 +22,7 @@
 ;; lib
 (defn handle-buffer-queue [[b chan handler]]
   (if (and (not (nil? handler)) (not (nil? chan)))
-    (async/>!! chan (handler (reduce-frames b)))))
+    (channel/set-value chan (handler (reduce-frames b)))))
 
 ;; global suspend switch
 (def !listening (atom true))
@@ -32,20 +33,12 @@
 (defn get-ms []
   (.toEpochMilli (java.time.Instant/now)))
 
-(defn raw->ba
-  ([line out buffer]
-   (raw->ba line out buffer 512))
-  ([line out buffer size]
-
-   (if (read line buffer size)
-     (do
-       (.write out buffer 0 size)
-       (.toByteArray out)))))
-
 (defn listen [line out {:keys [name audio-format min max channels handlers frame-rate]}]
   ;; listen
   (let [size 512
         buffer (byte-array size)]
+
+    ;; hot loop
     (loop []
       (do
         (.reset out)
@@ -62,21 +55,17 @@
 (defn listener [opts]
   (fn []
     (async/thread
-      (with-open [line (-> (:name opts) mixer get-line (open-line (:audio-format opts)))
+      (with-open [mixer (mixer/make-mixer (:name opts) opts)
                   out (java.io.ByteArrayOutputStream.)]
         (println (str "Listening to " (:name opts)))
-        (listen line out opts)))))
-
-;; we always want the most recent sample
-(defn channel []
-  (async/chan (async/sliding-buffer 1)))
+        (mixer/listen mixer)))))
 
 ;; ----------------------------------------------------------------------------------------------
 
-(def c0 (channel))
-(def c1 (channel))
-(def c2 (channel))
-(def c3 (channel))
+(def c0 (channel/make-channel))
+(def c1 (channel/make-channel))
+(def c2 (channel/make-channel))
+(def c3 (channel/make-channel))
 
 (def ES8 (listener
                ;; channels
