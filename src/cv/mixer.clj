@@ -1,6 +1,7 @@
 (ns cv.mixer
   (:require [clojure.string :as str]
-            [cv.util :refer [when-let*]]))
+            [cv.util :refer [when-let*]]
+            [cv.format]))
 
 (defprotocol Closeable
   (close [this] "Closes the resource"))
@@ -34,7 +35,7 @@
               mixer (javax.sound.sampled.AudioSystem/getMixer (first mixer-info))
               line (get-line mixer)
 
-              size 512
+              size (.getBufferSize line)
               buf (byte-array size)
               out (java.io.ByteArrayOutputStream.)]
     (->Mixer name line out buf)))
@@ -45,6 +46,13 @@
 (defn formats [mixer]
   (map str (.getFormats (.getLineInfo (:line mixer)))))
 
+(defn read [in buffer size]
+  (let [count (.read in buffer 0 size)]
+    (println count)
+    (if (not (zero? count))
+      count
+      nil)))
+
 (defn read->ba
   ([mixer]
    (read->ba mixer (count (:buf mixer))))
@@ -52,6 +60,7 @@
    (let [line (:line mixer)
          out (:out mixer)
          buffer (:buf mixer)]
+     (.reset out)
      (if (read line buffer size)
        (do
          (.write out buffer 0 size)
@@ -59,8 +68,10 @@
 
 (list-mixers)
 
-(def es8 (make-mixer "ES-8" {:audio-format cv.format/x12-96000-24bit}))
+(def es8 (make-mixer "ES-8" {:audio-format cv.format/x4-44100-16bit}))
 
 (map println (formats es8))
 
-(open es8 cv.format/x2-41000-16bit)
+(open es8 cv.format/x4-44100-16bit)
+
+(reduce + (read->ba es8))
