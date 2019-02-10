@@ -28,8 +28,8 @@
 ;; ;; global suspend switch
 ;; (def !listening (atom true))
 
-;; (defn conj-frames [buffers frames]
-;;   (map (fn [[buffer frame]] (conj buffer frame)) (partition 2 (interleave buffers frames))))
+(defn conj-frames [buffers frames]
+  (map (fn [[buffer frame]] (conj buffer frame)) (partition 2 (interleave buffers frames))))
 
 ;; (defn get-ms []
 ;;   (.toEpochMilli (java.time.Instant/now)))
@@ -88,24 +88,22 @@
         line-info (first (.getTargetLineInfo mixer))
         line (.getLine mixer line-info)]
 
-    (println mixer-info)
-
     ;; open the line
     (do
       (.open line cv.format/x4-44100-16bit)
       (.start line))
 
-    (let [size (.getBufferSize line)
+    (let [size 512
           buffer (byte-array size)
           out (java.io.ByteArrayOutputStream.)]
 
       (loop []
         ;; (.reset out)
         (let [count (.read line buffer 0 size)]
-          (println (reduce + buffer))
-          (recur)
-          ;; (do
-          ;;   (.write out buffer 0 count)
-          ;;   (println (reduce + (.toByteArray out)))
-          ;;   (recur))
+          (if (not (zero? count))
+            (let [frames (partition-all 4 (partition-all 2 buffer))
+                  buffers (reduce conj-frames (take 4 (cycle [[]])) frames)]
+
+              ))
+
           )))))
