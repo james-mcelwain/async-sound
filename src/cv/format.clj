@@ -1,12 +1,15 @@
 (ns cv.format)
 
+(defn audio-format [{:keys [sample-rate sample-size channels signed big-endian]}]
+  (javax.sound.sampled.AudioFormat. sample-rate sample-size channels signed big-endian))
+
 (def x1-41000-16bit
-  (let [sample-rate 44100
-        sample-size 16
-        channels 1
-        signed true
-        big-endian false]
-    (javax.sound.sampled.AudioFormat. sample-rate sample-size channels signed big-endian)))
+  (audio-format
+   { :sample-rate 44100
+     :sample-size 16
+     :signed true
+     :channels 1
+     :big-endian false }))
 
 (def x2-41000-16bit
   (let [sample-rate 44100

@@ -30,11 +30,10 @@
     (.start line)
     line))
 
-(defn make-mixer [name {:keys [audio-format]}]
+(defn make-mixer [name]
   (when-let* [mixer-info (seq (get-mixer name))
               mixer (javax.sound.sampled.AudioSystem/getMixer (first mixer-info))
               line (get-line mixer)
-
               size (.getBufferSize line)
               buf (byte-array size)
               out (java.io.ByteArrayOutputStream.)]
@@ -48,7 +47,6 @@
 
 (defn read [in buffer size]
   (let [count (.read in buffer 0 size)]
-    (println count)
     (if (not (zero? count))
       count
       nil)))
@@ -61,14 +59,14 @@
          out (:out mixer)
          buffer (:buf mixer)]
      (.reset out)
-     (if (read line buffer size)
+     (if-let [count (read line buffer size)]
        (do
-         (.write out buffer 0 size)
+         (.write out buffer 0 count)
          (.toByteArray out))))))
 
 (list-mixers)
 
-(def es8 (make-mixer "ES-8" {:audio-format cv.format/x4-44100-16bit}))
+(def es8 (make-mixer "ES-8"))
 
 (map println (formats es8))
 

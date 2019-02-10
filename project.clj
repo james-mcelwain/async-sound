@@ -1,4 +1,6 @@
 (defproject cv "0.2.0-SNAPSHOT"
+  :main cv.core
+
   :description "FIXME: write description"
   :url "http://example.com/FIXME"
   :license {:name "Eclipse Public License"
