@@ -9,8 +9,8 @@
    [cv.format :as format])
   (:gen-class))
 
-;; (defn little-endian [b1 b2]
-;;   (short (bit-or (bit-and b1 0xFF) (bit-shift-left b2 8))))
+(defn little-endian [b1 b2]
+  (short (bit-or (bit-and b1 0xFF) (bit-shift-left b2 8))))
 
 ;; (defn read [in buffer size]
 ;;   (let [count (.read in buffer 0 size)]
@@ -18,7 +18,6 @@
 ;;       count
 ;;       nil)))
 
-;; (defn reduce-frames [frames] (reduce (fn [xs [lb hb]] (cons (little-endian lb hb) xs)) [] frames))
 
 ;; ;; lib
 ;; (defn handle-buffer-queue [[b chan handler]]
@@ -81,6 +80,14 @@
 
 (def name "ES-8")
 
+(defn conj-frames [buffers frames]
+  (map (fn [[buffer frame]] (conj buffer frame)) (partition 2 (interleave buffers frames))))
+
+(defn reduce-frames [frames] (reduce (fn [xs [lb hb]] (cons (little-endian lb hb) xs)) [] frames))
+
+(defn average [coll]
+  (int (/ (reduce + coll) (count coll))))
+
 (defn -main []
   ;; get a line from our soundcard
   (let [mixer-info (first  (filter #(= (.getName %) name) (javax.sound.sampled.AudioSystem/getMixerInfo)))
@@ -101,9 +108,9 @@
         ;; (.reset out)
         (let [count (.read line buffer 0 size)]
           (if (not (zero? count))
+            ;; break into chunks of 2 and then 4 (channels)
             (let [frames (partition-all 4 (partition-all 2 buffer))
-                  buffers (reduce conj-frames (take 4 (cycle [[]])) frames)]
-
-              ))
-
-          )))))
+                  buffers (reduce conj-frames (take 4 (cycle [[]])) frames)
+                  frames (map reduce-frames buffers)]
+              (println (doall (map average frames)))
+              (recur))))))))
