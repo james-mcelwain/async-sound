@@ -65,11 +65,3 @@
          (.toByteArray out))))))
 
 (list-mixers)
-
-(def es8 (make-mixer "ES-8"))
-
-(map println (formats es8))
-
-(open es8 cv.format/x4-44100-16bit)
-
-(reduce + (read->ba es8))
