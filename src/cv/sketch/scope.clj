@@ -1,6 +1,5 @@
 (ns cv.sketch.scope
   (:require [cv.core :as core]
-             [clojure.core.async :as async]
              [quil.core :as q]
              [quil.middleware :as m]))
 
@@ -9,24 +8,12 @@
   (q/frame-rate 100)
   {:lx 0 :ly 0 :c (cycle (range (q/width))) :x 0 :y (/ (q/height) 2) })
 
-(def !missed (atom false))
-
-(defn miss! [[val chan]]
-  (swap! !missed (fn [_] (= chan :default)))
-  val)
-
 (defn update-state [{:keys [x y c]}]
-  (let [c1 (async/<!! core/c1)
-        val (miss! (async/alts!! [core/c0] :default y))]
-
-    ;; log
-    (println
-     "c0:" (format "%-4s" x) (format "%-10s" y) (if @!missed " MISSED" "       ")
-     "c1: " (str (:gate c1)) (:length c1) "len")
-
+  (let [val @(:c0 core/channels)]
+    (println val)
     {:lx x
      :ly y
-     :gate (:gate c1)
+     :gate true
      :c (rest c)
      :x (first c)
      :y (q/map-range val 30000 -30000 0 (q/height))}))
