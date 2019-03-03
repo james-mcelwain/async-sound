@@ -2,20 +2,18 @@
   (:require
    [clojure.core.async :as async]
    [cv.util :refer [when-let*]]
-   [cv.channel :as channel]
    [cv.gate :refer [gate]]
-   [cv.mixer :as mixer]
    [cv.cv :refer [cv]]
    [cv.format :as format])
   (:gen-class))
 
-(defn little-endian [b1 b2]
+(defn- little-endian [b1 b2]
   (short (bit-or (bit-and b1 0xFF) (bit-shift-left b2 8))))
 
-(defn conj-frames [buffers frames]
+(defn- conj-frames [buffers frames]
   (map (fn [[buffer frame]] (conj buffer frame)) (partition 2 (interleave buffers frames))))
 
-(defn reduce-frames [frames]
+(defn- reduce-frames [frames]
   ;; [(-28, 58) (-25 58) ... ]
   (reduce (fn [xs [lb hb]] (cons (little-endian lb hb) xs)) [] frames))
 
@@ -24,10 +22,7 @@
 
 (def !running (atom true))
 
-(defn average [coll]
-  (int (/ (reduce + coll) (count coll))))
-
-(defn listener [name audio-format mappers]
+(defn- listener [name audio-format mappers]
   (println (str name " " audio-format))
 
   ;; get a line from our soundcard
@@ -84,18 +79,16 @@
               (let [frames (partition-all channel-size (partition-all 2 buffer))
                     buffers (reduce conj-frames (take channel-size (cycle [[]])) frames)
                     frames (map reduce-frames buffers)]
-                (doall(map (fn [[frame channel]] (reset! (:!state channel) frame))
+                (doall (map (fn [[frame channel]] (reset! (:!state channel) frame))
                   (partition 2 (interleave frames channels))))))))
         (println "---> exited"))
       (map (fn [channel]
              (fn []
                (let [!state (:!state channel)
-                     val @!state
+                     [val _] (swap-vals! !state (constantly nil))
                      mapper (:mapper channel)]
-                 (if val
-                   (do
-                     (reset! !state nil)
-                     (mapper val)))))) channels))))
+                 (if val (mapper val)))))
+           channels))))
 
 (defn reset []
   (swap! !running not)
