@@ -16,6 +16,9 @@
 
   returns a map of whether the gate was high, and the total gate length
   "
+
+  ;; TODO: handle case where gate is evently split on either side of a
+  ;; buffer such that it doesn't register.
   ([buffer]
    (gate {:max default-max} buffer default-length default-ratio))
 

@@ -2,91 +2,108 @@
   (:require
    [clojure.core.async :as async]
    [cv.util :refer [when-let*]]
+   [cv.channel :as channel]
    [cv.gate :refer [gate]]
-   [cv.mixer :refer [mixer get-line open-line]]
+   [cv.mixer :as mixer]
    [cv.cv :refer [cv]]
-   [cv.format :as format]))
+   [cv.format :as format])
+  (:gen-class))
 
 (defn little-endian [b1 b2]
   (short (bit-or (bit-and b1 0xFF) (bit-shift-left b2 8))))
 
-(defn read [in buffer size]
-  (let [count (.read in buffer 0 size)]
-    (if (not (zero? count))
-      count
-      nil)))
-
-(defn reduce-frames [frames] (reduce (fn [xs [lb hb]] (cons (little-endian lb hb) xs)) [] frames))
-
-;; lib
-(defn handle-buffer-queue [[b chan handler]]
-  (if (and (not (nil? handler)) (not (nil? chan)))
-    (async/>!! chan (handler (reduce-frames b)))))
-
-;; global suspend switch
-(def !listening (atom true))
-
 (defn conj-frames [buffers frames]
   (map (fn [[buffer frame]] (conj buffer frame)) (partition 2 (interleave buffers frames))))
 
-(defn get-ms []
-  (.toEpochMilli (java.time.Instant/now)))
+(defn reduce-frames [frames]
+  ;; [(-28, 58) (-25 58) ... ]
+  (reduce (fn [xs [lb hb]] (cons (little-endian lb hb) xs)) [] frames))
 
-(defn raw->ba
-  ([line out buffer]
-   (raw->ba line out buffer 512))
-  ([line out buffer size]
+(defn average [coll]
+  (int (/ (reduce + coll) (count coll))))
 
-   (if (read line buffer size)
-     (do
-       (.write out buffer 0 size)
-       (.toByteArray out)))))
+(def !running (atom true))
 
-(defn listen [line out {:keys [name audio-format min max channels handlers frame-rate]}]
-  ;; listen
-  (let [size 512
-        buffer (byte-array size)]
-    (loop []
-      (do
-        (.reset out)
-        (when-let* [start          (get-ms)
-                    ba             (raw->ba line out buffer)
-                    frames         (partition-all (count channels) (partition-all 2 ba))
-                    buffers        (reduce conj-frames (take (count channels) (cycle [[]])) frames)
-                    channel-groups (partition 3 (interleave buffers channels handlers))]
-          (run! handle-buffer-queue channel-groups)
-      (if @!listening
-        (recur)
-        true))))))
+(defn average [coll]
+  (int (/ (reduce + coll) (count coll))))
 
-(defn listener [opts]
-  (fn []
-    (async/thread
-      (with-open [line (-> (:name opts) mixer get-line (open-line (:audio-format opts)))
-                  out (java.io.ByteArrayOutputStream.)]
-        (println (str "Listening to " (:name opts)))
-        (listen line out opts)))))
+(defn listener [name audio-format mappers]
+  (println (str name " " audio-format))
 
-;; we always want the most recent sample
-(defn channel []
-  (async/chan (async/sliding-buffer 1)))
+  ;; get a line from our soundcard
+  (let [mixer-info (first  (filter #(= (.getName %) name) (javax.sound.sampled.AudioSystem/getMixerInfo)))
+        mixer (javax.sound.sampled.AudioSystem/getMixer mixer-info)
+        line-info (first (.getTargetLineInfo mixer))
+        line (.getLine mixer line-info)]
 
-;; ----------------------------------------------------------------------------------------------
+    ;; open and start the line
+    (do
+      (.open line audio-format)
+      (.start line))
 
-(def c0 (channel))
-(def c1 (channel))
-(def c2 (channel))
-(def c3 (channel))
+    ;; setup buffered io
+    (let [size 512 ;;(.getBufferSize line)
+          channel-size (.getChannels audio-format)
+          channels (map (fn [i] {:mapper (nth mappers i) :!state (atom nil)}) (range channel-size))
+          buffer (byte-array size)]
 
-(def ES8 (listener
-               ;; channels
-               {:channels [c0 c1 c2 c3]
-                :handlers [cv gate cv cv]
-                ;;
-                :audio-format format/x4-96000-16bit
-                ;; soundcard device name
-                :name "ES-8"
-                ;;
-                :frame-rate 30}))
+      (async/thread
+        (while @!running
 
-(ES8)
+          (Thread/sleep 1000)
+          ;; read from the data line for our sound card.
+          ;; the buffer size for the line tends to be quite large and it is possible
+          ;; to read 100-500ms worth of sound data per read. this can be determined by calling
+          ;; `DataLine#getBufferSize`. i've tended to keep the amount read significantly smaller
+          ;; since latency tends to matter more with cv. we only care about the current value of
+          ;; a cv parameter, we can discard previous values unlike audio rate data.
+          (let [count (.read line buffer 0 size)]
+            ;; if we read any data...
+            (if (not (zero? count))
+
+              ;; the format of bytes read depends on the audio-format used to open the line.
+              ;; we use 16 bit mono because it's the most useful representation of cv.
+              ;; two channels of mono 16 bit little endian audio data looks like:
+              ;;
+              ;; | ch 1. lo byte | ch 1. hi byte | ch 2. lo byte | ch 2. hi byte | ...
+              ;;
+              ;; our goal is to group channel data together and deserialize the data
+              ;; into 16 bit signed Java ints:
+              ;;
+              ;; (let [[channel-1 channel-2] [[] []]])
+              ;;
+              ;; these resulting vecs of ints can then be consumed, either to compute
+              ;; and average cv value for the frame, or to test whether a gate was
+              ;; high or not
+              ;;
+              ;; we try to do this with as few allocations as possible.
+              ;;
+              ;; TODO: currently, we're ignoring how much is read since getting
+              ;; incomplete reads is pretty rare / incosequential, but we should
+              ;; still handle this correctly.
+              (let [frames (partition-all channel-size (partition-all 2 buffer))
+                    buffers (reduce conj-frames (take channel-size (cycle [[]])) frames)
+                    frames (map reduce-frames buffers)]
+                (doall(map (fn [[frame channel]] (reset! (:!state channel) frame))
+                  (partition 2 (interleave frames channels))))))))
+        (println "---> exited"))
+      (map (fn [channel]
+             (fn []
+               (let [!state (:!state channel)
+                     val @!state
+                     mapper (:mapper channel)]
+                 (if val
+                   (do
+                     (reset! !state nil)
+                     (mapper val)))))) channels))))
+
+(defn reset []
+  (swap! !running not)
+  (swap! !running not))
+
+(defn es8 [] (listener name cv.format/x4-44100-16bit [average average average average]))
+
+;; (defn -main []
+;;   (while true
+;;     (Thread/sleep 1000)
+;;     (println @(:c0 channels))))

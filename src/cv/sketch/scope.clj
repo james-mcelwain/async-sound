@@ -1,35 +1,25 @@
 (ns cv.sketch.scope
   (:require [cv.core :as core]
-             [clojure.core.async :as async]
              [quil.core :as q]
              [quil.middleware :as m]))
 
 (defn setup []
   (q/background 0)
   (q/frame-rate 100)
-  {:lx 0 :ly 0 :c (cycle (range (q/width))) :x 0 :y (/ (q/height) 2) })
+  (let [[c0 c1 c2 c3] (cv.core/es8)]
+    {:c0 c0 :lx 0 :ly 0 :c (cycle (range (q/width))) :x 0 :y (/ (q/height) 2) }))
 
-(def !missed (atom false))
-
-(defn miss! [[val chan]]
-  (swap! !missed (fn [_] (= chan :default)))
-  val)
-
-(defn update-state [{:keys [x y c]}]
-  (let [c1 (async/<!! core/c1)
-        val (miss! (async/alts!! [core/c0] :default y))]
-
-    ;; log
-    (println
-     "c0:" (format "%-4s" x) (format "%-10s" y) (if @!missed " MISSED" "       ")
-     "c1: " (str (:gate c1)) (:length c1) "len")
-
-    {:lx x
+(defn update-state [{:keys [x y c c0]}]
+  (let [val (c0)]
+    {:c0 c0
+     :lx x
      :ly y
-     :gate (:gate c1)
+     :gate true
      :c (rest c)
      :x (first c)
-     :y (q/map-range val 30000 -30000 0 (q/height))}))
+     :y (if val
+          (q/map-range val 30000 -30000 0 (q/height))
+          y)}))
 
 (defn draw-state [{:keys [gate x y lx ly]}]
   (q/stroke 0)
