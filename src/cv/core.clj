@@ -7,26 +7,62 @@
    [cv.format :as format])
   (:gen-class))
 
-(defn- little-endian [b1 b2]
-  (short (bit-or (bit-and b1 0xFF) (bit-shift-left b2 8))))
+(defn- little-endian->int [[lb hb]]
+  ;; for 16 bit audio, each sample comes in as two bytes
+  (short (bit-or (bit-and lb 0xFF) (bit-shift-left hb 8))))
 
-(defn- conj-frames [buffers frames]
-  (map (fn [[buffer frame]] (conj buffer frame)) (partition 2 (interleave buffers frames))))
+(defn- add-frame-to-bin [bins frame]
+  ;; map with two collections iterates both seqs at once
+  ;; given a frame (a b c d) and bins ([] [] [] []), we conj each data value
+  ;; to the end of the list
+  (map (fn [bin x] (conj x bin)) bins frame))
 
-(defn- reduce-frames [frames]
-  ;; [(-28, 58) (-25 58) ... ]
-  (reduce (fn [xs [lb hb]] (cons (little-endian lb hb) xs)) [] frames))
+(defn- bin-by-channel [data channel-size]
+  ;; partition (a b c d a b c d) into ((a b c d) (a b c d))
+  ;; each sequence of (a b c d) constitutes a frame
+  (let [frames (partition-all channel-size data)
+        bins (take channel-size (cycle [[]]))]
+    ;; given a lazy seq of frames of N size (channels), reduce into N bins
+    (reduce add-frame-to-bin bins frames)))
+
+(defn- update-channel-state [data channel]
+  ;; TODO: if it's a gate, we probably want to keep all the data
+  ;; until the next time it's consumer -- it could be valuable
+  ;; know if a gate fired any time in the last frame
+  (reset! (:!state channel) data))
 
 (defn average [coll]
   (int (/ (reduce + coll) (count coll))))
 
+(defn- find-mixer-info [name]
+  (let [mixers (javax.sound.sampled.AudioSystem/getMixerInfo)]
+    (first (filter #(= (.getName %) name) mixers))))
+
 (def !running (atom true))
 
 (defn- listener [name audio-format mappers]
+  ;; the format of bytes read from a sound-card depends on the audio-format
+  ;; used to open the data line.
+  ;;
+  ;; we use 16 bit mono because it's the most useful representation of cv.
+  ;; two channels of mono 16 bit little endian audio data looks like:
+  ;;
+  ;; | ch 1. lo byte | ch 1. hi byte | ch 2. lo byte | ch 2. hi byte | ...
+  ;;
+  ;; our goal is to first convert the byte stream into a seq of integers,
+  ;; and then bin each sample by channel. consumers can then use that data
+  ;; to compute, e.g., the average cv value for that time period or whether
+  ;; a gate was high or low.
+  ;;
+  ;; the buffer size for the line tends to be quite large and it is possible
+  ;; to read 100-500ms worth of sound data per read. this can be determined by calling
+  ;; `DataLine#getBufferSize`. i've tended to keep the amount read significantly smaller
+  ;; since latency tends to matter more with cv. we only care about the current value of
+  ;; a cv parameter, we can discard previous values unlike audio rate data.
   (println (str name " " audio-format))
 
   ;; get a line from our soundcard
-  (let [mixer-info (first  (filter #(= (.getName %) name) (javax.sound.sampled.AudioSystem/getMixerInfo)))
+  (let [mixer-info (find-mixer-info name)
         mixer (javax.sound.sampled.AudioSystem/getMixer mixer-info)
         line-info (first (.getTargetLineInfo mixer))
         line (.getLine mixer line-info)]
@@ -39,7 +75,7 @@
     ;; setup buffered io
     (let [size 512 ;;(.getBufferSize line)
           channel-size (.getChannels audio-format)
-          channels (map (fn [i] {:mapper (nth mappers i) :!state (atom nil)}) (range channel-size))
+          channels (map #({:mapper % :!state (atom nil)}) mappers)
           buffer (byte-array size)
           out (java.io.ByteArrayOutputStream.)]
 
@@ -47,42 +83,13 @@
         (while @!running
           (.reset out)
 
-          ;; read from the data line for our sound card.
-          ;; the buffer size for the line tends to be quite large and it is possible
-          ;; to read 100-500ms worth of sound data per read. this can be determined by calling
-          ;; `DataLine#getBufferSize`. i've tended to keep the amount read significantly smaller
-          ;; since latency tends to matter more with cv. we only care about the current value of
-          ;; a cv parameter, we can discard previous values unlike audio rate data.
           (let [count (.read line buffer 0 size)]
             ;; if we read any data...
             (if (not (zero? count))
-
-              ;; the format of bytes read depends on the audio-format used to open the line.
-              ;; we use 16 bit mono because it's the most useful representation of cv.
-              ;; two channels of mono 16 bit little endian audio data looks like:
-              ;;
-              ;; | ch 1. lo byte | ch 1. hi byte | ch 2. lo byte | ch 2. hi byte | ...
-              ;;
-              ;; our goal is to group channel data together and deserialize the data
-              ;; into 16 bit signed Java ints:
-              ;;
-              ;; (let [[channel-1 channel-2] [[] []]])
-              ;;
-              ;; these resulting vecs of ints can then be consumed, either to compute
-              ;; and average cv value for the frame, or to test whether a gate was
-              ;; high or not
-              ;;
-              ;; we try to do this with as few allocations as possible.
-              ;;
-              ;; TODO: currently, we're ignoring how much is read since getting
-              ;; incomplete reads is pretty rare / incosequential, but we should
-              ;; still handle this correctly.
               (do (.write out buffer 0 count)
-                (let [frames (partition-all channel-size (partition-all 2 (.toByteArray out)))
-                      buffers (reduce conj-frames (take channel-size (cycle [[]])) frames)
-                      frames (map reduce-frames buffers)]
-                  (doall (map (fn [[frame channel]] (reset! (:!state channel) frame))
-                              (partition 2 (interleave frames channels)))))))))
+                  (let [raw-data (map little-endian->int (partition-all 2 (.toByteArray out)))
+                        channel-data (bin-by-channel raw-data channel-size)]
+                    (doall (map update-channel-state channel-data channels)))))))
         (println "---> exited"))
       (map (fn [channel]
              (fn []
@@ -95,8 +102,3 @@
 ;; (swap! !running not)
 
 (defn es8 [] (listener "ES-8" cv.format/x4-96000-16bit [average gate average average]))
-
-;; (defn -main []
-;;   (while true
-;;     (Thread/sleep 1000)
-;;     (println @(:c0 channels))))
