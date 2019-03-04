@@ -7,14 +7,16 @@
   (q/background 0)
   (q/frame-rate 100)
   (let [[c0 c1 c2 c3] (cv.core/es8)]
-    {:c0 c0 :lx 0 :ly 0 :c (cycle (range (q/width))) :x 0 :y (/ (q/height) 2) }))
+    {:c0 c0 :c1 c1 :lx 0 :ly 0 :c (cycle (range (q/width))) :x 0 :y (/ (q/height) 2) }))
 
-(defn update-state [{:keys [x y c c0]}]
-  (let [val (c0)]
+(defn update-state [{:keys [x y c c0 c1]}]
+  (let [val (c0)
+        gate (c1)]
     {:c0 c0
+     :c1 c1
      :lx x
      :ly y
-     :gate true
+     :gate (:gate gate)
      :c (rest c)
      :x (first c)
      :y (if val

@@ -40,12 +40,13 @@
     (let [size 512 ;;(.getBufferSize line)
           channel-size (.getChannels audio-format)
           channels (map (fn [i] {:mapper (nth mappers i) :!state (atom nil)}) (range channel-size))
-          buffer (byte-array size)]
+          buffer (byte-array size)
+          out (java.io.ByteArrayOutputStream.)]
 
       (async/thread
         (while @!running
+          (.reset out)
 
-          (Thread/sleep 1000)
           ;; read from the data line for our sound card.
           ;; the buffer size for the line tends to be quite large and it is possible
           ;; to read 100-500ms worth of sound data per read. this can be determined by calling
@@ -76,11 +77,12 @@
               ;; TODO: currently, we're ignoring how much is read since getting
               ;; incomplete reads is pretty rare / incosequential, but we should
               ;; still handle this correctly.
-              (let [frames (partition-all channel-size (partition-all 2 buffer))
-                    buffers (reduce conj-frames (take channel-size (cycle [[]])) frames)
-                    frames (map reduce-frames buffers)]
-                (doall (map (fn [[frame channel]] (reset! (:!state channel) frame))
-                  (partition 2 (interleave frames channels))))))))
+              (do (.write out buffer 0 count)
+                (let [frames (partition-all channel-size (partition-all 2 (.toByteArray out)))
+                      buffers (reduce conj-frames (take channel-size (cycle [[]])) frames)
+                      frames (map reduce-frames buffers)]
+                  (doall (map (fn [[frame channel]] (reset! (:!state channel) frame))
+                              (partition 2 (interleave frames channels)))))))))
         (println "---> exited"))
       (map (fn [channel]
              (fn []
@@ -90,11 +92,9 @@
                  (if val (mapper val)))))
            channels))))
 
-(defn reset []
-  (swap! !running not)
-  (swap! !running not))
+;; (swap! !running not)
 
-(defn es8 [] (listener name cv.format/x4-44100-16bit [average average average average]))
+(defn es8 [] (listener "ES-8" cv.format/x4-96000-16bit [average gate average average]))
 
 ;; (defn -main []
 ;;   (while true
