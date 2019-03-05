@@ -15,7 +15,7 @@
   ;; map with two collections iterates both seqs at once
   ;; given a frame (a b c d) and bins ([] [] [] []), we conj each data value
   ;; to the end of the list
-  (map (fn [bin x] (conj x bin)) bins frame))
+  (map (fn [bin x] (conj bin x)) bins frame))
 
 (defn- bin-by-channel [data channel-size]
   ;; partition (a b c d a b c d) into ((a b c d) (a b c d))
@@ -75,7 +75,7 @@
     ;; setup buffered io
     (let [size 512 ;;(.getBufferSize line)
           channel-size (.getChannels audio-format)
-          channels (map #({:mapper % :!state (atom nil)}) mappers)
+          channels (map (fn [mapper] {:mapper mapper :!state (atom nil)}) mappers)
           buffer (byte-array size)
           out (java.io.ByteArrayOutputStream.)]
 
