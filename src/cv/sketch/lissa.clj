@@ -7,7 +7,7 @@
    [quil.middleware :as m]))
 
 ;; CONSTANTS
-(def  point-count      24)
+(def  point-count       25)
 (def  freq-x            3)
 (def  freq-y            1)
 (def  mod-freq-y        2)
@@ -19,6 +19,9 @@
 ;; VARS
 (def !phi         (atom 15))
 (def !mod-freq-x  (atom 3))
+
+(reset! !phi 21)
+(reset! !mod-freq-x 1)
 
 ;; UTIL
 (defn point [x y] [x y])
@@ -41,7 +44,7 @@
   (* (q/sin (* angle freq-y)) (q/cos (* angle mod-freq-y))))
 
 (defn scale-point [p s]
-  (* p (- (/ s 2) 30)))
+  (int (* p (- (/ s 2) 30))))
 
 (defn calc-points []
   (map #(let [angle (calc-angle %)
@@ -59,19 +62,21 @@
      (scale-point x (q/width))
      (scale-point y (q/height)))))
 
-(defn update-vars []
-  (let [[c0] (async/alts!! [midi/cc0] :default @!phi)
-        [c1] (async/alts!! [core/c1] :default @!mod-freq-x)
-        [c2] (async/alts!! [core/c2] :default 0)
-        [c3] (async/alts!! [core/c3] :default 0)]
+(def channels (cv.core/es8))
 
-    (debug c0 c1 c2 c3)
-    (swap! !phi (fn [& args] (q/map-range c0 0 127 1 359)))
-    (swap! !mod-freq-x (fn [& args] (q/map-range c1 -30000 30000 3 6)))))
+(defn map-cv [n]
+  (q/map-range n -30000 30000 3 6))
+
+(defn update-vars []
+
+  ;; (map-cv ((nth channels 0)))
+  ;; (map-cv ((nth channels 1)))
+  (reset! !phi (q/map-range (q/mouse-x) 0 (q/width) 0 360))
+  (reset! !mod-freq-x (q/map-range (q/mouse-y) 0 (q/height) 3 6)))
 
 (defn setup []
   (q/frame-rate 30)
-  (midi/IAC)
+  ;; (midi/IAC)
   (calc-points))
 
 (defn update-state [points]
@@ -94,11 +99,12 @@
           :let [[x1 y1] (nth points i1)
                 [x2 y2] (nth points i2)
                 d       (q/dist x1 y1 x2 y2)
-                a       (q/pow (/ 1 (/ d (+ 1 connection-radius))) 6)]]
+                a       (if (not (zero? d)) (q/pow (/ 1 (/ d (+ 1 connection-radius))) 2))]]
 
-    (if (< d connection-radius)
-      (do (q/stroke line-color (* a line-alpha))
-          (q/line x1 y1 x2 y2))))
+    (if (and (not (zero? d)) (< d connection-radius))
+      (do
+        (q/stroke line-color (* (int a) line-alpha))
+        (q/line x1 y1 x2 y2))))
 
   (q/pop-matrix))
 
