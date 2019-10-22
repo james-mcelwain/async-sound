@@ -51,6 +51,13 @@
         big-endian false]
     (javax.sound.sampled.AudioFormat. sample-rate sample-size channels signed big-endian)))
 
+(def x4-96000-24bit
+  (let [sample-rate 96000
+        sample-size 24
+        channels 4
+        signed true
+        big-endian false]
+    (javax.sound.sampled.AudioFormat. sample-rate sample-size channels signed big-endian)))
 (def x12-96000-16bit
   (let [sample-rate 96000
         sample-size 16

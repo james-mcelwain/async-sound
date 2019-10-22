@@ -10,8 +10,8 @@
     {:c0 c0 :c1 c1 :lx 0 :ly 0 :c (cycle (range (q/width))) :x 0 :y (/ (q/height) 2) }))
 
 (defn update-state [{:keys [x y c c0 c1]}]
-  (let [val (c0)
-        gate (c1)]
+  (let [val (or (c0) 0)
+        gate (or (c1) {:gate false})]
     {:c0 c0
      :c1 c1
      :lx x

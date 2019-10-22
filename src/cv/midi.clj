@@ -2,26 +2,15 @@
   (:require [overtone.midi :as midi]
             [cv.core :as core]
             [clojure.core.async :as async]))
-
-(defn event-handler [channels]
-  (println "listening to " channels)
-  (fn [midi-msg]
-    ;; index of channel == cc number
-    (if-let [chan (get channels (:note midi-msg))]
-      (async/>!! chan (:velocity midi-msg)))))
-
-(defn midi-bus [{:keys [channels name]}]
+(defn midi-bus [name]
   (println (str "open midi bus " name))
   (if-let [device (midi/midi-in name)]
     (do
       (println (str "openend " name))
-      (midi/midi-handle-events device (event-handler channels)))))
+      (midi/midi-handle-events device #(println (:data2 %))))))
 
-(def cc0 (core/channel))
 
-(defn vir-midi [] (midi-bus {:channels [cc0] :name "VirMIDI [hw:1,0,0]"}))
-
-(def a (vir-midi))
+(defn vir-midi [] (midi-bus {:channels [] :name "VirMIDI [hw:1,0,0]"}))
 
 (map :name )(midi/midi-devices)
 
@@ -46,15 +35,12 @@
 (defn ->Reciever []
   (reify javax.sound.midi.Receiver
     (close [this] (println "Reciever was closed early."))
-    (send [this msg time] (println msg))))
+    (send [this msg time] (println (.getChannel msg)))))
 
 (defn- set-reciever [device]
   (.setReceiver (.getTransmitter device) (->Reciever)))
 
 
-(def device (get-device "VirMIDI [hw:1,0,0]"))
-
-(open-device device)
-(set-reciever device)
-
-(.getReceiver (.getTransmitter device))
+(def dev (get-device "IAC"))
+(open-device dev)
+(set-reciever dev)

@@ -28,7 +28,7 @@
 (defn- update-channel-state [data channel]
   ;; TODO: if it's a gate, we probably want to keep all the data
   ;; until the next time it's consumer -- it could be valuable
-  ;; know if a gate fired any time in the last frame
+  ;; know if a gate fired any time in the last animation frame
   (reset! (:!state channel) data))
 
 (defn average [coll]
@@ -38,6 +38,7 @@
   (let [mixers (javax.sound.sampled.AudioSystem/getMixerInfo)]
     (first (filter #(= (.getName %) name) mixers))))
 
+;; global state to kill a listening thread from repl
 (def !running (atom true))
 
 (defn- listener [name audio-format mappers]
@@ -73,7 +74,7 @@
       (.start line))
 
     ;; setup buffered io
-    (let [size 512 ;;(.getBufferSize line)
+    (let [size (* 512 16);;(.getBufferSize line)
           channel-size (.getChannels audio-format)
           channels (map (fn [mapper] {:mapper mapper :!state (atom nil)}) mappers)
           buffer (byte-array size)
@@ -102,3 +103,13 @@
 ;; (swap! !running not)
 
 (defn es8 [] (listener "ES-8" cv.format/x4-96000-16bit [average gate average average]))
+
+;; (defn -main []
+;;   )
+
+;; (async/thread
+;;   (println "starting...")
+;;   (let [channels (es8)]
+;;     (while @!running
+;;       (Thread/sleep 100)
+;;       (println (map #(%) channels)))))
