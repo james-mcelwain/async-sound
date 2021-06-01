@@ -17,7 +17,6 @@
   (q/text (str (int (q/current-frame-rate))) 20 40))
 
 (defn setup []
-  ;; (core/ES8)
   (q/frame-rate 30)
   {:r 0 :g 0 :b 0 :val 0})
 

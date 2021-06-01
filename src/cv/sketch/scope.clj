@@ -6,7 +6,7 @@
 (defn setup []
   (q/background 0)
   (q/frame-rate 60)
-  (let [[c0 c1 c2 c3] (cv.core/es8)]
+  (let [[c0 c1] (cv.core/get-channels)]
     {:c0 c0 :c1 c1 :lx 0 :ly 0 :c (cycle (range (q/width))) :x 0 :y (/ (q/height) 2) }))
 
 (defn update-state [{:keys [x y c c0 c1]}]
@@ -19,7 +19,7 @@
      :gate (:gate gate)
      :c (rest c)
      :x (first c)
-     :y (if val
+     :y (if (and val (not= 0 val))
           (q/map-range val 30000 -30000 0 (q/height))
           y)}))
 

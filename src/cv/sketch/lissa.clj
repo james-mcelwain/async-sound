@@ -1,23 +1,33 @@
 (ns cv.sketch.lissa
   (:require
+   [cv.core :as core]
    [quil.core :as q]
    [quil.middleware :as m]))
 
-;; CONSTANTS
-(def state {:point-count 200
-            :freq-x 4
-            :freq-y 7
-            :mod-freq-x 3
-            :mod-freq-y 2
-            :line-weight 1
-            :line-color 0
-            :line-alpha 50
-            :phi 15
-            :connection-radius 70
-            :connection-ramp 6})
+;; State -
+
+;; state is the main vars and constants used in the sketch
+;; some of these are used only in steup, while others are
+;; manipulated every frame.
+
+(def state
+  {:point-count 200
+   :freq-x 4
+   :freq-y 7
+   :mod-freq-x 3
+   :mod-freq-y 2
+   :line-weight 1
+   :line-color 255
+   :line-alpha 50
+   :phi 15
+   :connection-radius 140
+   :connection-ramp 6})
 
 
-;; LIFECYCLE
+;; Lifecycle -
+
+;; a lissajous curve...
+
 (defn update-points [{:keys [point-count freq-x freq-y mod-freq-x mod-freq-y phi points] :as state}]
   (doseq [i (range point-count)
           :let [angle         (q/map-range i 0 point-count 0 q/TWO-PI)
@@ -25,32 +35,30 @@
                 y             (* (q/sin (* angle freq-y)) (q/cos (* angle mod-freq-y)))
                 ^"[[F" points points
                 ^floats point (aget points i)]]
-    (aset point 0 (float (* x (- (/ (q/width) 2 ) 30))))
+    (aset point 0 (float (* x (- (/ (q/width) 2) 30))))
     (aset point 1 (float (* y (- (/ (q/height) 2) 30)))))
   state)
 
-(defn setup []
-  (q/frame-rate 60)
-  (let [state (assoc state :points (make-array Float/TYPE (:point-count state) 2))]
-    (-> state
-        (update-points)
-        (assoc :channels (cv.core/es8)))))
+(defn update-vars [state]
+  (let [c0 (:c0 state)
+        vc0 (c0)
+        mod-freq-x (q/map-range (or vc0 (:mod-freq-x state)) 3000 -3000 0 1)
+        c1 (:c1 state)
+        vc1 (c1)
+        mod-freq-y (q/map-range (or vc1 (:mod-freq-y state)) 3000 -3000 0 1)]
 
-(defn update-vars [{:keys [channels] :as state}]
-  (assoc state
-         :phi (or ((nth channels 0)) (:phi state))
-         :mod-freq-x (+ 0.001 (:mod-freq-x state))
-         :mod-freq-y (+ 0.001 (:mod-freq-y state))))
+    (println "c0:" vc0 "c1:" vc1 "x:" mod-freq-x "y:" mod-freq-y)
 
-(defn update [state]
-  ;; (println (map #(%) (:channels state)))
-  (-> state
-      (update-vars)
-      (update-points)))
+    (assoc state
+           :phi (:phi state)
+           :mod-freq-x mod-freq-x ;; (+ 0.001 (:mod-freq-x state))
+           :mod-freq-y mod-freq-y ;;(+ 0.001 (:mod-freq-y state))
+
+           )))
 
 (defn lissa [{:keys [line-weight point-count connection-radius line-color line-alpha points]}]
   (q/color-mode :rgb)
-  (q/background 255)
+  (q/background 0)
   (q/stroke-weight line-weight)
   (q/stroke-cap :round)
   (q/no-fill)
@@ -76,17 +84,29 @@
           (q/line x1 y1 x2 y2))))
   (q/pop-matrix))
 
+;; Quil -
+
+(defn setup []
+  (q/frame-rate 60)
+  (let [[c0 c1] (cv.core/get-channels)
+        state (assoc state :points (make-array Float/TYPE (:point-count state) 2) :c0 c0 :c1 c1)]
+    (update-points state)))
+
+(defn update [state]
+  (-> state
+      (update-vars)
+      (update-points)))
+
 (defn draw [state]
   (lissa state))
 
+
 (q/defsketch gen-art
   :title "Lissajous"
-  :size [800 800]
+  :size [1500 1500]
   :setup setup
   :update update
   :draw draw
   :features [:keep-on-top :no-bind-output]
   :middleware [m/fun-mode])
-
-
 

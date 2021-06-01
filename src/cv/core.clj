@@ -1,9 +1,9 @@
 (ns cv.core
   (:require
    [clojure.core.async :as async]
-   [cv.util :refer [when-let*]]
    [cv.gate :refer [gate]]
    [cv.cv :refer [cv]]
+   [cv.util :refer [find-mixer-info]]
    [cv.format :as format])
   (:gen-class))
 
@@ -12,6 +12,7 @@
   (short (bit-or (bit-and lb 0xFF) (bit-shift-left hb 8))))
 
 (defn- add-frame-to-bin [bins frame]
+  ;; TODO: we probably want to use mutable java arrays, not seq due to performance
   ;; map with two collections iterates both seqs at once
   ;; given a frame (a b c d) and bins ([] [] [] []), we conj each data value
   ;; to the end of the list
@@ -31,15 +32,22 @@
   ;; know if a gate fired any time in the last animation frame
   (reset! (:!state channel) data))
 
-(defn average [coll]
-  (int (/ (reduce + coll) (count coll))))
-
-(defn- find-mixer-info [name]
-  (let [mixers (javax.sound.sampled.AudioSystem/getMixerInfo)]
-    (first (filter #(= (.getName %) name) mixers))))
+(defn- create-channel [channel]
+  ;; return a closure for consumers to call that wraps state atom and
+  ;; applies mapper to retrieved value, or nil if no value
+  ;; was updated since the last time the fn was called
+  (fn []
+    (let [!state (:!state channel)
+          [val _] (swap-vals! !state (constantly nil))
+          mapper (:mapper channel)]
+      (if val
+        (mapper val)
+        nil))))
 
 ;; global state to kill a listening thread from repl
 (def !running (atom true))
+;; buffer size for reading from data-line
+(def !read-size (atom (* 28 256)))
 
 (defn- listener [name audio-format mappers]
   ;; the format of bytes read from a sound-card depends on the audio-format
@@ -74,9 +82,9 @@
       (.start line))
 
     ;; setup buffered io
-    (let [size (* 512 16);;(.getBufferSize line)
+    (let [size @!read-size ;;(.getBufferSize line)
           channel-size (.getChannels audio-format)
-          channels (map (fn [mapper] {:mapper mapper :!state (atom nil)}) mappers)
+          channels (map #({:mapper % :!state (atom nil)}) mappers)
           buffer (byte-array size)
           out (java.io.ByteArrayOutputStream.)]
 
@@ -90,26 +98,22 @@
               (do (.write out buffer 0 count)
                   (let [raw-data (map little-endian->int (partition-all 2 (.toByteArray out)))
                         channel-data (bin-by-channel raw-data channel-size)]
-                    (doall (map update-channel-state channel-data channels)))))))
+                    (doall (map update-channel-state channel-data channels))))
+              (println "WARNING: read 0 bytes from line"))))
         (println "---> exited"))
-      (map (fn [channel]
-             (fn []
-               (let [!state (:!state channel)
-                     [val _] (swap-vals! !state (constantly nil))
-                     mapper (:mapper channel)]
-                 (if val (mapper val)))))
-           channels))))
+      (map create-channel channels))))
 
-;; (swap! !running not)
+(defn get-channels [] (listener "ES9 [default]" cv.format/x14-96000-16bit [cv cv]))
 
-(defn es8 [] (listener "ES-8" cv.format/x4-96000-16bit [average gate average average]))
+(comment
+  (swap! !running not)
 
-;; (defn -main []
-;;   )
+  (defn -main []
+    (async/thread
+      (println "starting...")
+      (let [channels (get-channels)]
+        (while @!running
+          (Thread/sleep 100)
+          (println (map #(%) channels)))))
 
-;; (async/thread
-;;   (println "starting...")
-;;   (let [channels (es8)]
-;;     (while @!running
-;;       (Thread/sleep 100)
-;;       (println (map #(%) channels)))))
+    (while true)))
