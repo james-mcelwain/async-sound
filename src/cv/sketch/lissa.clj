@@ -42,18 +42,17 @@
 (defn update-vars [state]
   (let [c0 (:c0 state)
         vc0 (c0)
-        mod-freq-x (q/map-range (or vc0 (:mod-freq-x state)) 3000 -3000 0 1)
+        mod-freq-x (if vc0 (q/map-range vc0  17000 -17000 0 1) (:mod-freq-x state))
         c1 (:c1 state)
         vc1 (c1)
-        mod-freq-y (q/map-range (or vc1 (:mod-freq-y state)) 3000 -3000 0 1)]
+        mod-freq-y (if vc1 (q/map-range vc1 17000 -17000 0 1) (:mod-freq-y state))]
 
-    (println "c0:" vc0 "c1:" vc1 "x:" mod-freq-x "y:" mod-freq-y)
+    (println "c0:" vc0 "c1:" vc1 "x:" mod-freq-x "y:" mod-freq-y "state" state)
 
     (assoc state
            :phi (:phi state)
            :mod-freq-x mod-freq-x ;; (+ 0.001 (:mod-freq-x state))
            :mod-freq-y mod-freq-y ;;(+ 0.001 (:mod-freq-y state))
-
            )))
 
 (defn lissa [{:keys [line-weight point-count connection-radius line-color line-alpha points]}]

@@ -77,14 +77,13 @@
         line (.getLine mixer line-info)]
 
     ;; open and start the line
-    (do
-      (.open line audio-format)
-      (.start line))
+    (.open line audio-format)
+    (.start line)
 
     ;; setup buffered io
     (let [size @!read-size ;;(.getBufferSize line)
           channel-size (.getChannels audio-format)
-          channels (map #({:mapper % :!state (atom nil)}) mappers)
+          channels (map #(do {:mapper % :!state (atom nil)}) mappers)
           buffer (byte-array size)
           out (java.io.ByteArrayOutputStream.)]
 
@@ -103,17 +102,22 @@
         (println "---> exited"))
       (map create-channel channels))))
 
-(defn get-channels [] (listener "ES9 [default]" cv.format/x14-96000-16bit [cv cv]))
+(defn get-channels [] (listener "ES9 [plughw:1,0]" cv.format/x14-96000-16bit [cv cv]))
 
 (comment
   (swap! !running not)
 
-  (defn -main []
-    (async/thread
-      (println "starting...")
-      (let [channels (get-channels)]
-        (while @!running
-          (Thread/sleep 100)
-          (println (map #(%) channels)))))
+  (map #(.getName %) (javax.sound.sampled.AudioSystem/getMixerInfo))
+  (map cv.util/show-line-info (javax.sound.sampled.AudioSystem/getMixerInfo)))
 
-    (while true)))
+
+
+(defn -main []
+  (async/thread
+    (println "starting...")
+    (let [channels (get-channels)]
+      (while @!running
+        (Thread/sleep 100)
+        (println (map #(%) channels)))))
+
+  (while true))
